@@ -136,7 +136,7 @@ hist.plot <- function(physeq, level="Genus", myPalette=cbPalette) {
 }
 
 
-hclust_func <- function(distmat, phy, clustno=which.max(avg.sil), result_prefix = NULL, run.RR=FALSE, 
+hclust_func <- function(distmat, phy, clustno=which.max(avg.sil), result_prefix = NULL,
                         level="Genus.Species", colorPalette=cbPalette, return_dataframe=FALSE) {
   if(is.null(result_prefix)) result_prefix <- paste0(deparse(substitute(distmat)),"_hclust")
   clust.dat <- distmat
@@ -149,26 +149,27 @@ hclust_func <- function(distmat, phy, clustno=which.max(avg.sil), result_prefix 
       avg.sil[i] <- summary(silhouette(cuts, as.dist(clust.dat)))$si.summary["Mean"]
     }
   if(!is.na(result_prefix)) {
-    ggsave(paste0(result_prefix, "_silhouetteplot.pdf"),  plot(avg.sil), device="pdf", height=5, width=7)
+    ggsave(paste0(result_prefix, "_silhouetteplot.pdf"),  plot(avg.sil), device="pdf", height=5, width=7, useDingbats=FALSE)
   } else {
     plot(avg.sil)
   }
-
+  
   choose.clust <- cutree(myhclust, k=clustno)
   pcs <- pcoa(clust.dat)$vectors[,1:2]
   pcs.dat <- merge(pcs, choose.clust, by=0)
   rownames(pcs.dat) <- pcs.dat$Row.names
   pcs.dat$Row.names <- NULL
+  names(pcs.dat)[names(pcs.dat) %in% "y"] <- "Clusters"
 
   temp <- merge(sample_data(phy), pcs.dat, by=0)
   rownames(temp) <- temp$Row.names
   temp$Row.names <- NULL
-  temp$cluster <- factor(temp$y, labels=paste0("Cluster",1:length(unique(temp$y))))
-  plt <- ggplot(temp, aes(x=Axis.1,y=Axis.2, color=cluster)) + 
-    geom_point() + 
-    stat_ellipse(level=0.65)
+  temp$cluster <- factor(temp$Clusters, labels=paste0("Cluster",1:length(unique(temp$Clusters))))
+  plt <- ggplot(temp, aes(x=Axis.1, y=Axis.2, fill=cluster)) + 
+    geom_point(size=4, shape=21) + 
+    stat_ellipse(level=0.65, aes(color=cluster), show.legend = FALSE)
   if(!is.na(result_prefix)) {
-    ggsave(paste0(result_prefix, "_PCoAplot.pdf"),  plt, device="pdf", height=5, width=7)
+    ggsave(paste0(result_prefix, "_PCoAplot.pdf"),  plt, device="pdf", height=5, width=7, useDingbats=FALSE)
   } else {
     print(plt)
   }
@@ -176,49 +177,41 @@ hclust_func <- function(distmat, phy, clustno=which.max(avg.sil), result_prefix 
 
   temp <- temp[labels(clust.dat),]
   print(adonis2(clust.dat ~ cluster, data=temp))
-if(run.RR == TRUE) {
-  ## Risk Ratios for each cluster:
-  temp.V12 <- temp[!temp$Analysis.Visit %in% "Visit 0",]
-  temp.V0 <- temp[temp$Analysis.Visit %in% "Visit 0" & !temp$Case.or.Control.Status.Full.Cohort %in% "",]
 
-  print("Exacerbation Risk by Cluster")
-  RR.func(temp.V12, var="cluster","Case.or.Control.Status.Original")
-  print("Exacerbation Risk based on Baseline by Cluster")
-  RR.func(temp.V0, var="cluster", "Case.or.Control.Status.Full.Cohort")
-  
-  print("Viral Detection Risk by Cluster")
-  RR.func(temp.V12, var="cluster","Virus_pos")
-  print("Viral Detection at Baseline by Cluster")
-  RR.func(temp.V0, var="cluster", "Virus_pos")
-}
-  phy2 <- merge_phyloseq(phy, sample_data(temp))
-  if(!is.na(result_prefix)) {
-    ggsave(paste0(result_prefix, "_clusterplot.pdf"),  hist.plot(phy2, level=level, myPalette=colorPalette), device="pdf", width=10, height=5)
-  } else {
-    hist.plot(phy2, level=level, myPalette=colorPalette)
-  }
+  sample_data(phy) <- temp
+  #if(!is.na(result_prefix)) {
+  #  ggsave(paste0(result_prefix, "_clusterplot.pdf"),  hist.plot(phy, level=level, myPalette=colorPalette), device="pdf", width=10, height=5)
+  #} else {
+  #  hist.plot(phy, level=level, myPalette=colorPalette)
+  #}
   if(return_dataframe != FALSE) {
-    return(sample_data(phy2))
+    return(sample_data(phy))
   }
 }
 
-pam_func <- function(distmat, phy, clustno, result_prefix=NULL, run.RR=FALSE, level="Genus.Species",
+pam_func <- function(distmat, phy, clustno, result_prefix=NULL, level="Genus.Species",
                      colorPalette=cbPalette, return_dataframe=FALSE) {
   if(is.null(result_prefix)) result_prefix <- paste0(deparse(substitute(distmat)),"_pam")
   phy <- phy
   clust.dat <- distmat
-  pcs <- pcoa(clust.dat)$vectors[,1:15]
-  find.clust <- clusGap(pcs, FUN=pam1, K.max=18, B=50)
+  cluster.opts <- 2:18
+  avg.sil <- NULL
+  for(i in cluster.opts) {
+    pamgrp <- pam(clust.dat, i)
+    avg.sil[i] <- pamgrp$silinfo$avg.width
+  }
   
   if(!is.na(result_prefix)) {
-    ggsave(paste0(result_prefix, "_gapplot.pdf"),  plot_clusgap(find.clust), device="pdf", height=5, width=7)
+    ggsave(paste0(result_prefix, "_silplot.pdf"),  plot(avg.sil), device="pdf", height=5, width=7)
   } else {
-    plot_clusgap(find.clust)
+    plot(avg.sil)
   }
+  
+  pcs <- ape::pcoa(distmat)$vectors[,1:15]
 
-  clusters <- pam1(pcs, clustno)
+  clusters <- pam(clust.dat, clustno)$clustering
   pcs.dat <- merge(pcs, clusters, by.x=0, by.y=0)
-  pcs.dat$cluster <- factor(paste0("Cluster", pcs.dat$cluster))
+  pcs.dat$cluster <- factor(paste0("Cluster", pcs.dat$y))
   plt <- ggplot(pcs.dat, aes(x=Axis.1, y=Axis.2, color=cluster)) + 
     geom_point() + 
     stat_ellipse(level=0.68)
@@ -231,32 +224,21 @@ pam_func <- function(distmat, phy, clustno, result_prefix=NULL, run.RR=FALSE, le
   row.names(pcs.dat) <- pcs.dat$Row.names
   pcs.dat$Row.names <- NULL
   print(table(pcs.dat$cluster))
-
+  
   pcs.dat <- pcs.dat[labels(clust.dat),]
   print(adonis2(clust.dat ~ cluster, data=pcs.dat))
+  sampl.dat <- merge(sample_data(phy), pcs.dat, by=0)
+  rownames(sampl.dat) <- sampl.dat$Row.names
+  sampl.dat$Row.names <- NULL
+  phy.dat <- merge_phyloseq(phy, sampl.dat)
 
-  phy.dat <- merge_phyloseq(phy, sample_data(data.frame(pcs.dat)))
-if(run.RR==TRUE) {
-  temp.V12 <- subset_samples(phy.dat, !Analysis.Visit %in% "Visit 0")
-  temp.V0 <- subset_samples(phy.dat, Analysis.Visit %in% "Visit 0" & !Case.or.Control.Status.Full.Cohort %in% "")
-
-  print("Exacerbation Risk by Cluster")
-  RR.func(temp.V12, var="cluster","Case.or.Control.Status.Original")
-  print("Exacerbation Risk based on Baseline by Cluster")
-  RR.func(temp.V0, var="cluster", "Case.or.Control.Status.Full.Cohort")
-  
-  print("Viral Detection Risk by Cluster")
-  RR.func(temp.V12, var="cluster","Virus_pos")
-  print("Viral Detection at Baseline by Cluster")
-  RR.func(temp.V0, var="cluster", "Virus_pos")
-}
-  if(!is.na(result_prefix)) {
-    ggsave(paste0(result_prefix, "_clusterplot.pdf"),  hist.plot(phy.dat, level=level, myPalette=colorPalette), device="pdf", width=10, height=5)
-  } else {
-    hist.plot(phy.dat, level=level, myPalette=colorPalette)
-  }
+  #if(!is.na(result_prefix)) {
+  #  ggsave(paste0(result_prefix, "_clusterplot.pdf"),  hist.plot(phy.dat, level=level, myPalette=colorPalette), device="pdf", width=10, height=5)
+  #} else {
+  #  hist.plot(phy.dat, level=level, myPalette=colorPalette)
+  #}
   if(return_dataframe != FALSE) {
-    return(sample_data(phy.dat))
+    return(sampl.dat)
   }
 }
 

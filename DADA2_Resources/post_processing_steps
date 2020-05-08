@@ -1,0 +1,20 @@
+biom convert -i qiime_otu_table.txt -o qiime_otu_table.biom --to-hdf5 --table-type="OTU table" --process-obs-metadata taxonomy
+
+filter_taxa_from_otu_table.py -i qiime_otu_table.biom -o qiime_otu_table_bactonly.biom -p Bacteria
+
+beta_diversity_through_plots.py -i qiime_otu_table_bactonly.biom -o beta_div_bact/ -t dada2_first_tree.tre -p /data/Users/kmccauley/MUPPITS/OTUtables/params -aO 10 --mapping_fp Nextseq_mapping_102717.txt
+
+filter_otus_from_otu_table.py -i qiime_otu_table_bactonly.biom -o qiime_otu_table_filt.biom --min_count_fraction 0.00001
+
+biom convert -i qiime_otu_table_filt.biom -o qiime_otu_table_filt.txt --to-tsv --header-key taxonomy
+
+#Next, run negative control filtering (new script being developed, and will be placed into the DADA2_Resources folder)
+#See New_Method_For_NTCs.R
+
+#After this, I'll convert to biom and summarize to determine rarefying depth:
+# To create a variance stabilized SV table:
+
+biom convert -i otu_table_noneg.txt -o otu_table_noneg.biom --to-hdf5 --table-type="OTU table" --process-obs-metadata taxonomy
+
+beta_diversity_through_plots.py -i rarefied_filtered_otutable.txt -o bdiv_final/ -t dada2_first_tree.tre -p /data/Users/kmccauley/MUPPITS/OTUtables/params -aO 10 --mapping_fp ../../../../DataFiles/MUPPITS_Merged_Mapping_UCSF_03Apr18.txt
+

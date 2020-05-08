@@ -1,0 +1,40 @@
+# This is example code to extract forward and reverse reads from a NextSeq run.
+# Doug has included these steps in his upcoming bash script
+
+tar -xzvf 180427_NS500170_0061_AHVLKNBGX5.tar.gz # This is the tar.gz of the target run.
+
+cd 180427_NS500170_0061_AHVLKNBGX5 #Change directories into the unzipped NextSeq folder
+nohup bcl2fastq --input-dir Data/Intensities/BaseCalls/ --output-dir . &> bcl.out & # Turn base calls into fastq files
+nohup extract_barcodes.py -f Undetermined_S0_L001_R1_001.fastq.gz -c barcode_in_label -s ':' -l 12 -o ./extracted_barcodes_L001/ &> ext_bc1.out & #Get barcodes
+nohup extract_barcodes.py -f Undetermined_S0_L002_R1_001.fastq.gz -c barcode_in_label -s ':' -l 12 -o ./extracted_barcodes_L002/ &> ext_bc2.out &
+nohup extract_barcodes.py -f Undetermined_S0_L003_R1_001.fastq.gz -c barcode_in_label -s ':' -l 12 -o ./extracted_barcodes_L003/ &> ext_bc3.out &
+nohup extract_barcodes.py -f Undetermined_S0_L004_R1_001.fastq.gz -c barcode_in_label -s ':' -l 12 -o ./extracted_barcodes_L004/ &> ext_bc4.out &
+
+#Assign Sample Names to Sequences
+nohup split_libraries_fastq.py -i Undetermined_S0_L001_R1_001.fastq.gz -b ./extracted_barcodes_L001/barcodes.fastq -m ../Nextseq_04202018_mapping.txt -o splibs_L001_fwd --rev_comp_barcode -q0 --barcode_type 12 --store_demultiplexed_fastq &> nohup_splib_L1_R1.out &
+nohup split_libraries_fastq.py -i Undetermined_S0_L002_R1_001.fastq.gz -b ./extracted_barcodes_L002/barcodes.fastq -m ../Nextseq_04202018_mapping.txt -o splibs_L002_fwd --rev_comp_barcode -q0 --barcode_type 12 --store_demultiplexed_fastq &> nohup_splib_L2_R1.out &
+nohup split_libraries_fastq.py -i Undetermined_S0_L003_R1_001.fastq.gz -b ./extracted_barcodes_L003/barcodes.fastq -m ../Nextseq_04202018_mapping.txt -o splibs_L003_fwd --rev_comp_barcode -q0 --barcode_type 12 --store_demultiplexed_fastq &> nohup_splib_L3_R1.out &
+nohup split_libraries_fastq.py -i Undetermined_S0_L004_R1_001.fastq.gz -b ./extracted_barcodes_L004/barcodes.fastq -m ../Nextseq_04202018_mapping.txt -o splibs_L004_fwd --rev_comp_barcode -q0 --barcode_type 12 --store_demultiplexed_fastq &> nohup_splib_L4_R1.out &
+
+nohup split_libraries_fastq.py -i Undetermined_S0_L001_R2_001.fastq.gz -b ./extracted_barcodes_L001/barcodes.fastq -m ../Nextseq_04202018_mapping.txt -o splibs_L001_rev --rev_comp_barcode -q0 --barcode_type 12 --store_demultiplexed_fastq &> nohup_splib_L1_R2.out &
+nohup split_libraries_fastq.py -i Undetermined_S0_L002_R2_001.fastq.gz -b ./extracted_barcodes_L002/barcodes.fastq -m ../Nextseq_04202018_mapping.txt -o splibs_L002_rev --rev_comp_barcode -q0 --barcode_type 12 --store_demultiplexed_fastq &> nohup_splib_L2_R2.out &
+nohup split_libraries_fastq.py -i Undetermined_S0_L003_R2_001.fastq.gz -b ./extracted_barcodes_L003/barcodes.fastq -m ../Nextseq_04202018_mapping.txt -o splibs_L003_rev --rev_comp_barcode -q0 --barcode_type 12 --store_demultiplexed_fastq &> nohup_splib_L3_R2.out &
+nohup split_libraries_fastq.py -i Undetermined_S0_L004_R2_001.fastq.gz -b ./extracted_barcodes_L004/barcodes.fastq -m ../Nextseq_04202018_mapping.txt -o splibs_L004_rev --rev_comp_barcode -q0 --barcode_type 12 --store_demultiplexed_fastq &> nohup_splib_L4_R2.out &
+
+# Filter your fastq file (done here to make the downstream file sizes smaller...maybe)
+nohup filter_fasta.py -f splibs_L001_fwd/seqs.fastq --sample_id_fp ../wisc_keep.list -o WISC_L001_fwd.fastq &> L1_fwd.out &
+nohup filter_fasta.py -f splibs_L002_fwd/seqs.fastq --sample_id_fp ../wisc_keep.list -o WISC_L002_fwd.fastq &> L2_fwd.out &
+nohup filter_fasta.py -f splibs_L003_fwd/seqs.fastq --sample_id_fp ../wisc_keep.list -o WISC_L003_fwd.fastq &> L3_fwd.out &
+nohup filter_fasta.py -f splibs_L004_fwd/seqs.fastq --sample_id_fp ../wisc_keep.list -o WISC_L004_fwd.fastq &> L4_fwd.out &
+nohup filter_fasta.py -f splibs_L001_rev/seqs.fastq --sample_id_fp ../wisc_keep.list -o WISC_L001_rev.fastq &> L1_rev.out &
+nohup filter_fasta.py -f splibs_L002_rev/seqs.fastq --sample_id_fp ../wisc_keep.list -o WISC_L002_rev.fastq &> L2_rev.out &
+nohup filter_fasta.py -f splibs_L003_rev/seqs.fastq --sample_id_fp ../wisc_keep.list -o WISC_L003_rev.fastq &> L3_rev.out &
+nohup filter_fasta.py -f splibs_L004_rev/seqs.fastq --sample_id_fp ../wisc_keep.list -o WISC_L004_rev.fastq &> L4_rev.out &
+
+#Combine lanes
+cat WISC_L001_fwd.fastq WISC_L002_fwd.fastq WISC_L003_fwd.fastq WISC_L004_fwd.fastq > WISC_fwd.fastq
+cat WISC_L001_rev.fastq WISC_L002_rev.fastq WISC_L003_rev.fastq WISC_L004_rev.fastq > WISC_rev.fastq
+
+#Separate into sample-specific fastq files
+nohup split_sequence_file_on_sample_ids.py -i WISC_fwd.fastq -o wisc_fwd_samps --file_type fastq &> split_f_wisc.out &
+nohup split_sequence_file_on_sample_ids.py -i WISC_rev.fastq -o wisc_rev_samps --file_type fastq &> split_r_wisc.out &

@@ -140,8 +140,8 @@ sort(rowSums(repraretable)) # sequencing depth is now even
 
 #rep.array<-as.data.frame(t(repraretable))
 
-setwd("/data/Users/kmccauley/PROSE_OTUPICK")
-MYdata=read.table("filtered_otutable_finalfilt_0_001_tax.txt",sep="\t",header=T,comment="",check.names=F)
+setwd(".")
+MYdata=read.table("otu_table_noneg.txt",sep="\t",header=T,comment="",check.names=F)
 taxonomy <- MYdata[,c("#OTU ID","taxonomy")]
 rownames(MYdata) <- MYdata[,"#OTU ID"]
 MYdata[,c("#OTU ID")] <- NULL
@@ -150,7 +150,7 @@ MYdata$taxonomy <- NULL
 MYarray=as.data.frame(t(MYdata))
 
 
-repraretable <- reprare(rawtab=MYarray, raredepth=2000, ntables=100, distmethod="bray", 
+repraretable <- reprare(rawtab=MYarray, raredepth=11456, ntables=100, distmethod="bray", 
                        summarymeasure=mean, seedstart=123, verbose=TRUE)
 
 rep.array<-as.data.frame(t(repraretable))
@@ -160,5 +160,5 @@ dim(rep.array)
 rep.array[,"#OTU ID"] <- row.names(rep.array)
 
 rarefied2 <- merge(rep.array, taxonomy, by=c("#OTU ID"))
-write.table(rarefied2,file="/data/Users/kmccauley/PROSE_OTUPICK/multiplyrarefy/rarefied_filtered_otutable.txt",sep="\t",quote=F,row.names=FALSE)
+write.table(rarefied2,file="rarefied_otutable.txt",sep="\t",quote=F,row.names=FALSE)
 

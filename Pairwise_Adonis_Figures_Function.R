@@ -3,10 +3,12 @@
 # You may also need to change all instances of "#SampleID" to your sample variable.
 cbPalette <- c("#999999", "#E69F00", "#56B4E9", "#009E73", "#F0E442", "#0072B2", "#D55E00", "#CC79A7")
 
-pairwise.figs <- function(dm, factor, dat, name, sampid="#SampleID") {
+# For "method", I want to be able to choose between showing everything compared to a reference group ("ref"), and all pairwise comparisons ("pw")
+
+pairwise.figs <- function(dm, factor, dat, name, sampid="#SampleID", method=c("ref","pw"), refgroup=NULL) {
   pacman::p_load(vegan, ape, ggplot2, gridExtra)
-  pair <- NULL
-  pair <- t(combn(levels(dat[,factor]),2))
+  pairlist <- NULL
+  pairlist <- t(combn(levels(dat[,factor]),2))
   tempPal <- cbPalette[c(1:(length(levels(dat[,factor]))+1))]
   names(tempPal) <- levels(dat[,factor])
   set.seed(123)
@@ -25,6 +27,8 @@ pairwise.figs <- function(dm, factor, dat, name, sampid="#SampleID") {
     annotate("text", x=-Inf,y=Inf, vjust=3.2,hjust=0, label=paste("italic(P) == ", over.P), parse=TRUE) +
     scale_color_manual(" ", values=tempPal) +
     stat_ellipse(level=0.68)
+  if(method == "pw") pair <- pairlist
+  if(method == "ref") pair <- pairlist[pairlist[,1] %in% refgroup | pairlist[,2] %in% refgroup, ]
   for(i in 2:(nrow(pair)+1)) {
     sub.dat <- dat[dat[,factor] %in% c(pair[(i-1),1],pair[(i-1),2]),]
     if(sampid != 0) {
@@ -51,7 +55,7 @@ pairwise.figs <- function(dm, factor, dat, name, sampid="#SampleID") {
       annotate("text", x=-Inf,y=Inf, vjust=3.2,hjust=0, label=paste("italic(P) == ", P), parse=TRUE)
     myplot[[i]] <- p
   }
-myplot[[i + 1]]<- ggplot(mtcars, aes(x = wt, y = mpg)) + geom_blank() + theme_void()
+if(method=="pw") myplot[[i + 1]]<- ggplot(mtcars, aes(x = wt, y = mpg)) + geom_blank() + theme_void()
 if(i < 6) {
   lay.mat <- rbind(rep(1,(i-1)), rep(1,(i-1)), c(2:i))
 } else {
