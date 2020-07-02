@@ -6,7 +6,7 @@
 setwd("/data/Users/kmccauley/CREW/DADA2_Comb/")
 otu <- read.table("qiime_otu_table_filt.txt", header=TRUE, check.names=F, sep="\t", comment="", skip=1, row.names=1)
 
-neg.dat <- otu[, grepl("NTC", names(otu)) & !names(otu) %in% c("taxonomy")]
+neg.dat <- otu[, grepl("NTC|EMPTY", names(otu)) & !names(otu) %in% c("taxonomy")]
 split_tax <- strsplit(as.character(otu$taxonomy), "; ")
 genus_level <- lapply(split_tax, function(x) {
   x <- x[-7]
@@ -63,8 +63,8 @@ for(i in names(max.in.NTC)) {
 }
 otu.notax.max <- data.frame(t(otu.notax.max), check.names=F)
 
-neg.dat <- otu.notax.mean[, grepl("NTC", names(otu.notax.mean))]
-samp.dat <- otu.notax.mean[, !grepl("NTC", names(otu.notax.mean))]
+neg.dat <- otu.notax.mean[, grepl("NTC|EMPTY", names(otu.notax.mean))]
+samp.dat <- otu.notax.mean[, !grepl("NTC|EMPTY", names(otu.notax.mean))]
 negsA <- rowSums(neg.dat>0)/ncol(neg.dat)
 sampsA <- rowSums(samp.dat>0)/ncol(samp.dat)
 dat <- merge(negsA, sampsA, by=0)
