@@ -47,7 +47,7 @@ pairwise.figs <- function(dm, factor, dat, name, sampid="#SampleID", method=c("r
     p <- ggplot(data=pcs.meta1, aes(x=PC1,y=PC2,color=var)) +
       geom_point() +
       scale_color_manual(values=tempPal) + 
-      guides(color=FALSE) + 
+      guides(color="none") + 
       ggtitle(paste(pair[i-1,1], "vs", pair[i-1,2])) +
       theme(title = element_text(size=7)) +
       stat_ellipse(level=0.68) +
@@ -60,7 +60,7 @@ if(i < 6) {
   lay.mat <- rbind(rep(1,(i-1)), rep(1,(i-1)), c(2:i))
 } else {
   # This will need to be modified for other's plots.
-  lay.mat <- rbind(rep(1,(4)),rep(1,(4)), rep(1,(4)), c(2:5), c(6:9), c(12,10:11,12))
+  lay.mat <- rbind(rep(1,(3)),rep(1,(3)), rep(1,(3)), c(2:4), c(5:7))
 }
-ggsave(paste0(name,".pdf"), grid.arrange(grobs=myplot, layout_matrix=lay.mat), device="pdf", width=8, height=11)
+ggsave(paste0(name,".pdf"), grid.arrange(grobs=myplot, layout_matrix=lay.mat), device=cairo_pdf, width=8, height=11)
 }

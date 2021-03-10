@@ -36,7 +36,7 @@ split.tax_SILVA <- function(tax.dat) {
 print_res <- function(x, phy, alpha=0.1, sig.only=TRUE, ref= NULL,  cont=NULL, var=var_of_int, file=NULL) {
   if(is.null(ref) & is.null(cont)) {
     # This is where the code would be modified to print all possible comparisons...
-    res <- results(x, pAdjustMethod = "fdr")
+    res <- results(x, name=var, pAdjustMethod = "fdr")
     if(class(sample_data(phy)[[var]]) %in% "factor") {
     varlevs <- levels(sample_data(phy)[[var]])
     res$comparison <- paste0(varlevs[1], "_vs_", varlevs[length(varlevs)])
@@ -73,11 +73,11 @@ print_res <- function(x, phy, alpha=0.1, sig.only=TRUE, ref= NULL,  cont=NULL, v
   }
 }
 
-plot_res <- function(x, phy=NULL, alpha=0.05, ref= NULL,  cont=NULL, var=var_of_int, diff_cut=0, file=NULL, color=TRUE) {
+plot_res <- function(x, phy=NULL, alpha=0.05, ref= NULL,  cont=NULL, var=var_of_int, diff_cut=0, file=NULL, color=TRUE, genus.cols=NULL, left=NULL, right=NULL) {
   require(ggplot2)
   if(!is.null(phy)) { #If you have a phyloseq object, do this:
     if(is.null(ref) & is.null(cont)) {
-      res <- results(x, pAdjustMethod = "fdr")
+      res <- results(x, name=var, pAdjustMethod = "fdr")
       if(class(sample_data(phy)[[var]]) %in% "factor") {
       varlevs <- levels(sample_data(phy)[[var]])
       res$comparison <- paste0(varlevs[1], "_vs_", varlevs[length(varlevs)])
@@ -97,36 +97,50 @@ plot_res <- function(x, phy=NULL, alpha=0.05, ref= NULL,  cont=NULL, var=var_of_
   #x$myvar <- c(sample_data(phy)[,var])[[1]]
   #baseMeanPerLevel <- sapply(levels(x$myvar), function(lvl) rowMeans( counts(x, normalized=TRUE)[,x$myvar %in% lvl]))
   #delta = baseMeanPerLevel[,cont] - baseMeanPerLevel[,ref]
-  sigtab = res[!is.na(res$padj), ]
+  sigtab = res[!is.na(res$padj) & res$padj < alpha, ]
   #sigtab <- merge(sigtab, delta, by=0)
   #names(sigtab)[names(sigtab) %in% "y"] <- "delta"
   #rownames(sigtab) <- sigtab$Row.names
   #sigtab$Row.names <- NULL
-  sigtab$delta <- ifelse(sigtab$log2FoldChange > 0, 2^sigtab$log2FoldChange * sigtab$baseMean, -(2^sigtab$log2FoldChange * sigtab$baseMean))
+  #sigtab$delta <- ifelse(sigtab$log2FoldChange > 0, 2^sigtab$log2FoldChange * sigtab$baseMean, -(2^sigtab$log2FoldChange * sigtab$baseMean))
   sigtab = cbind(as(sigtab, "data.frame"), as(tax_table(phy)[rownames(sigtab), ], "matrix"))
   sigtab <- tibble::rownames_to_column(as.data.frame(sigtab), var="OTUname")
-  sigtab$id.group_tag <- sigtab$padj < alpha & abs(sigtab$delta) > diff_cut & sigtab$OTUname %in% sigtab[order(sigtab$padj),][1:20,]$OTUname
   sigtab$id.group_sig <- sigtab$padj < alpha
+  if(is.factor(sample_data(phy)[[var]])) {
+    grpA <- sample_data(phy)[,var][sample_data(phy)[,var] == ref, ]
+    grpB <- sample_data(phy)[,var][sample_data(phy)[,var] == cont, ]
+    mean_grpA <- rowSums(otu_table(phy)[, colnames(otu_table(phy)) %in% rownames(grpA)])/nrow(grpA)
+    mean_grpB <- rowSums(otu_table(phy)[, colnames(otu_table(phy)) %in% rownames(grpB)])/nrow(grpB)
+    mean_diff <- mean_grpB - mean_grpA
+    sigtab <- merge(sigtab, mean_diff, by.x="OTUname",by.y=0)
+    sigtab$mean_diff <- sigtab$y
+  } else {
+    sigtab$mean_diff <- sigtab$log2FoldChange
+  }
   sigtab$Genus.color <- NA
   sigtab$Genus.color[sigtab$id.group_sig] <- as.character(sigtab$Genus[sigtab$id.group_sig])
+  if(!is.null(genus.cols)) {
+    sigtab$Genus.color[!sigtab$Genus.color %in% names(genus.cols) & !is.na(sigtab$Genus.color)] <- "Other"
+  }
+  sigtab$Genus.color <- factor(sigtab$Genus.color, levels=names(genus.cols))
   ## Make the dashed line look less like points
   ## Color code by the dominant genus (same color code as used in the paper)
   if(color==TRUE) {
-  fig <- ggplot(sigtab, aes(x=log2FoldChange, y=-log(padj), color=Genus.color, size=baseMean)) + 
-    geom_point()  +
-    geom_hline(yintercept=-log(alpha), color="grey", linetype="longdash", size=1) +
-    annotate("label", x=max(sigtab$log2FoldChange)-(abs(max(sigtab$log2FoldChange))*.2), y=0, label=cont) +
-    annotate("label", x=min(sigtab$log2FoldChange)+(abs(min(sigtab$log2FoldChange))*.2), y=0, label=ref) +
-    ggrepel::geom_text_repel(data=sigtab[sigtab$id.group_tag, ], aes(label=OTUname), color="black",
-                              min.segment.length=0.01,size=3, show.legend=FALSE, point.padding = 1, max.iter = 1e5, parse=TRUE, force=10) +
-    guides(size=FALSE) +
+  fig <- ggplot(sigtab, aes(x=log2FoldChange, y=-log(padj), fill=Genus.color, size=abs(baseMean))) + 
+    geom_point(shape=21, aes(alpha=0.5))  +
+    scale_fill_manual("Genus", values=genus.cols, drop=FALSE) +
+    scale_size_continuous(range=c(2.5,8)) +
+    annotate("label", x=max(sigtab$log2FoldChange)-(abs(max(sigtab$log2FoldChange))*.2), y=0, label=ifelse(is.null(right), ifelse(is.null(cont), NA, cont), right)) +
+    annotate("label", x=min(sigtab$log2FoldChange)+(abs(min(sigtab$log2FoldChange))*.2), y=0, label=ifelse(is.null(left), ifelse(is.null(ref), NA, ref), left)) +
     ylab("Q-value (-log)") +
-    xlab("Log2 Fold Change")
-  fig
+    xlab("Log2 Fold Change") +
+    guides(fill=guide_legend(override.aes = list(size=5)), alpha=FALSE) +
+    theme(legend.text = element_text(face="italic"))
+    fig
   } else {
     fig <- ggplot(sigtab, aes(x=log2FoldChange, y=-log(padj))) + 
       geom_point(aes(color=id.group_sig))  +
-      scale_color_manual("", values=c("grey50","red"), labels=c("Not Significant","FDR < 0.05")) +
+      scale_color_manual("", values=c("grey50","red"), labels=c("Not Significant",paste0("FDR <", alpha))) +
       geom_hline(yintercept=-log(alpha), color="grey", linetype="longdash", size=1) +
       annotate("label", x=max(sigtab$log2FoldChange)-(abs(max(sigtab$log2FoldChange))*.2), y=0, label=cont) +
       annotate("label", x=min(sigtab$log2FoldChange)+(abs(min(sigtab$log2FoldChange))*.2), y=0, label=ref) +

@@ -148,8 +148,8 @@ hclust_func <- function(distmat, phy, clustno=which.max(avg.sil), result_prefix 
       cuts <- cutree(myhclust, k=i)
       avg.sil[i] <- summary(silhouette(cuts, as.dist(clust.dat)))$si.summary["Mean"]
     }
-  if(!is.na(result_prefix)) {
-    ggsave(paste0(result_prefix, "_silhouetteplot.pdf"),  plot(avg.sil), device="pdf", height=5, width=7, useDingbats=FALSE)
+  if(!is.null(result_prefix)) {
+    #ggsave(paste0(result_prefix, "_silhouetteplot.pdf"),  plot(avg.sil), device="pdf", height=5, width=7)
   } else {
     plot(avg.sil)
   }

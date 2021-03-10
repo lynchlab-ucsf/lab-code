@@ -1,0 +1,18 @@
+## This file will describe the scripts that are currently in this directory and will be ordered by utility in analysis
+
+## OTU_SV_Tables
+DADA2_Resources -- AVOID THIS DIRECTORY. The current active script currently lives on Wynton and is called by the bash script under /wynton/group/lynch/NextSeq_Processed/scripts
+
+NegControlRemoval.R
+	This script removes common contaminants from your OTU/SV table. You input your OTU/SV table and working directory in the first two lines and ensure that all of your negative controls begin with NTC or EMPTY. Then, the script will output a clean OTU table as well as plots of the distribution of taxa before and after cleaning. This will help confirm that taxa we consider common contaminants (Pseudomonas, Commamonadaceae, etc) as well as those taxa that were contaminants, are removed from the dataset as expected or significantly reduced from the datasets. Some presets may need to be changed if something seems off, but these have worked for most datasets I have worked with.
+
+Multiply_Rarefy.R
+	This script rarefies your OTU/SV table per Fujimura 2016. Go to the bottom of the script and input your working directory, and ensure your rarefaction depth is the level that you intend (alpha rarefaction plots help in determining the best method -- I typically used qiime1's plots, but R can make them as well -- I can make a script for this if that would be helpfult). This script takes awhile to run because it takes your entire OTU table and subsamples it to your specified depth 100 times. A version that works with phyloseq objects is in the works.
+
+## Beta Diversity Analyses
+
+Adonis_All_Variables_20Jan19.R
+	This script is structured as a function with example usage at the bottom that can be modified for your analysis questions. This script is useful because THE FIRST TIME YOU RUN THIS SCRIPT IT WILL BREAK. It breaks because it outputs the list of variables you are about to run (and outputs a message telling you this). This file should then be reviewed to confirm (a) that you want to run all of the listed variables and (b) that the variable type that R has listed is what you expect. Options are numeric, factor, integer, character. This makes a difference in how your results are interpreted, so knowing the variable type you expect is important. Then, when you run the exact same script again, it will find your variable table and make those changes. As it runs through each variable, you will get a description of how R is reading your variable and if it is a factor, print out the expected levels. There is a lot of text, but it is all informative. I typically run this script using `Rscript Adonis_All_Variables_20Jan19` from the commmand line once I have made the modifications to the lower function.
+
+Clustering_Functions.R
+	There is a descriptor for usage in the header. This performs clustering on your dataset so that 
