@@ -1,6 +1,6 @@
 ## New Many-Model Script:
 
-pacman::p_load(gdata, pscl, stringr, MASS, tidyverse, foreach, phyloseq, parallel, tweedie, glmmTMB)
+pacman::p_load(gdata, pscl, stringr, MASS, tidyverse, foreach, phyloseq, parallel, tweedie, glmmTMB, cplm)
 ## These are a set of functions to be used for the "many-model" script (currently supporting Poisson, Negative Binomial, Zero-Inflated Negative Binomial and Tweedie/CPLM, but planning to expand)
 ## Example usage is : 
 ##    source("ManyModelScript_July2020.R")
@@ -10,17 +10,17 @@ pacman::p_load(gdata, pscl, stringr, MASS, tidyverse, foreach, phyloseq, paralle
 ## Filtering is done and described. You can also change the filtering parameters if your data needs different parameters.
 
 ## Parameters in the function:
-### phy    - your phyloseq object
-### otu    - OTU table if not providing a phyloseq object
-### data   - dataset if not providing a phyloseq object
-### model  - your statistical model which must start with a curly line. First variable will always be considered your main effect by default
-### sampleid - a variable that matches your sample names to your data (if you didn't provide a phyloseq object)
-### subjectid - a variable that identifies subjects (this is how repeated measures analysis is initiated)
-### pct_pres - The percent prevalence threshold for your analysis (a value is picked by default, and you can change the value here)
-### log_reads - The read-depth of OTUs, log transformed, which act as a read depth threshold (a value is picked by default, but it can be changed here)
-### main   - The main effect of your analysis if it is not the first variable in your model
-### cores  - The number of computational cores to use for your analysis (default=1)
-### ref    - Reference group for your analysis (for instance, if you have Cases and Controls, R might choose Cases as your Reference group, but really you want controls because you want positive numbers to be increased in cases)
+### phy        - your phyloseq object
+### otu        - OTU table if not providing a phyloseq object
+### data       - dataset if not providing a phyloseq object
+### model      - your statistical model which must start with a curly line. First variable will always be considered your main effect by default
+### sampleid   - a variable that matches your sample names to your data (if you didn't provide a phyloseq object)
+### subjectid  - a variable that identifies subjects (this is how repeated measures analysis is initiated)
+### pct_pres   - The percent prevalence threshold for your analysis (a value is picked by default, and you can change the value here)
+### log_reads  - The read-depth of OTUs, log transformed, which act as a read depth threshold (a value is picked by default, but it can be changed here)
+### main       - The main effect of your analysis if it is not the first variable in your model
+### cores      - The number of computational cores to use for your analysis (default=1)
+### ref        - Reference group for your analysis (for instance, if you have Cases and Controls, R might choose Cases as your Reference group, but really you want controls because you want positive numbers to be increased in cases)
 ### run_models - Models to analyze (options include: "pois","negbin","zinfl","tweedie" for Poisson, Negative Binomial, Zero-Inflated Negative Binomial, and Tweedie, respectively). You can also pick and choose these.
 
 
@@ -58,7 +58,7 @@ filter_params <- function(tokeep, pct_pres=NULL, log_reads=NULL) {
   reads <- colSums(tokeep$all_data[,tokeep$taxa_list])
   pct_pres_init <- colSums(tokeep$all_data[,tokeep$taxa_list]>0)/nrow(tokeep$all_data[,tokeep$taxa_list])
   tokeep$all_data$total_reads <- rowSums(tokeep$all_data[,tokeep$taxa_list])
-  if(sum(pct_pres_init == 0)>1) { print("You have at least one taxon not present in any samples. Please filter your OTU to present taxa before continuing."); stop() }
+  if(sum(pct_pres_init == 0)>1) { print("You have at least one taxon not present in any samples. Please filter your OTU table to present taxa before continuing. \n In Phyloseq: filter_taxa(phy, function(x) sum(x) > 0, TRUE)"); stop() }
   
   if(is.null(pct_pres) & is.null(log_reads)) {
     plot(log(reads), pct_pres_init)
@@ -84,8 +84,7 @@ filter_params <- function(tokeep, pct_pres=NULL, log_reads=NULL) {
     return(list(all_data=filt_data, taxa_list=filt_taxa))
   }
 }
-
-#anly_data <- filter_params(tokeepP)
+#anly_data <- filter_params(tokeep)
 
 #model <- "~ Case.or.Control.Status.Full.Cohort"
 
@@ -106,6 +105,8 @@ variable_info <- function(data, model, main, ref=ref) {
 
 
 all_models <- function(anly_data, model, feature, run_models=run_models, main=NULL) {
+  if("lm" %in% run_models) { lm <- tryCatch(glm(as.formula(paste0(feature, model, "+ total_reads")), data=anly_data$all_data, family="gaussian"), error=function(e) NULL, warning=function(w) NULL)} else {lm <- NA}
+  if("cplm" %in% run_models) { cplm <- tryCatch(cpglm(as.formula(paste0(feature, model, "+ total_reads")), data=anly_data$all_data, optimizer="bobyqa"), error=function(e) NULL, warning=function(w) NULL)} else {cplm <- NA}
   if("pois" %in% run_models) { pois <- tryCatch(glm(as.formula(paste0(feature, model, "+ total_reads")), data=anly_data$all_data, family="poisson"), error=function(e) NULL, warning=function(w) NULL)} else {pois <- NA}
   if("negbin" %in% run_models) { negbin <- tryCatch(MASS::glm.nb(as.formula(paste0(feature, model, "+ total_reads")), data=anly_data$all_data), error=function(e) NULL, warning=function(w) NULL)} else {negbin <- NA}
   if("zinfl" %in% run_models) { zinfl <- tryCatch(pscl::zeroinfl(as.formula(paste0(feature, model, "+ total_reads", "| 1")), data=anly_data$all_data, dist="negbin"), error=function(e) NULL, warning=function(w) NULL)} else {zinfl <- NA}
@@ -142,11 +143,27 @@ all_models <- function(anly_data, model, feature, run_models=run_models, main=NU
                                           summary(tweedie)$coef[grepl(main, rownames(summary(tweedie)$coef)),]
                                         },
                                         AIC=unlist(models)))
+    if(names(gomod) %in% "lm") return(c(OTU=feature, win.model="lm", 
+                                             results=if(length(levels(anly_data$all_data[,main]))>2) {
+                                               gdata::unmatrix(summary(lm)$coef[grepl(main, rownames(summary(lm)$coef)),], byrow=TRUE)
+                                             } else {
+                                               summary(lm)$coef[grepl(main, rownames(summary(lm)$coef)),]
+                                             },
+                                             AIC=unlist(models)))
+    if(names(gomod) %in% "cplm") return(c(OTU=feature, win.model="cplm", 
+                                             results=if(length(levels(anly_data$all_data[,main]))>2) {
+                                               gdata::unmatrix(summary(cplm)$coef[grepl(main, rownames(summary(cplm)$coef)),], byrow=TRUE)
+                                             } else {
+                                               summary(cplm)$coef[grepl(main, rownames(summary(cplm)$coef)),]
+                                             },
+                                             AIC=unlist(models)))
   }
 }
 
 #### This would contain mixed-effects models
 mixed_models <- function(anly_data, model, feature, run_models=run_models, main=NULL, subjid) {
+  if("lm" %in% run_models) { pois <- tryCatch(glmmTMB(as.formula(paste0(feature, model, "+ total_reads", "+ (1|", subjid, ")")), data=anly_data$all_data, family="gaussian"), error=function(e) NULL, warning=function(w) NULL)} else {pois <- NA}
+  if("cplm" %in% run_models) { pois <- tryCatch(glmmTMB(as.formula(paste0(feature, model, "+ total_reads", "+ (1|", subjid, ")")), data=anly_data$all_data, family="compois"), error=function(e) NULL, warning=function(w) NULL)} else {pois <- NA}
   if("pois" %in% run_models) { pois <- tryCatch(glmmTMB(as.formula(paste0(feature, model, "+ total_reads", "+ (1|", subjid, ")")), data=anly_data$all_data, family="poisson"), error=function(e) NULL, warning=function(w) NULL)} else {pois <- NA}
   if("negbin" %in% run_models) { negbin <- tryCatch(glmmTMB(as.formula(paste0(feature, model, "+ total_reads", "+ (1|", subjid, ")")), data=anly_data$all_data, family="nbinom1"), error=function(e) NULL, warning=function(w) NULL)} else {negbin <- NA}
   if("zinfl" %in% run_models) { zinfl <- tryCatch(glmmTMB(as.formula(paste0(feature, model, "+ total_reads", "+ (1|", subjid, ")")), data=anly_data$all_data, family="nbinom1", ziformula=~1), error=function(e) NULL, warning=function(w) NULL)} else {zinfl <- NA}
@@ -183,11 +200,25 @@ mixed_models <- function(anly_data, model, feature, run_models=run_models, main=
                                                summary(tweedie)$coef$cond[grepl(main, rownames(summary(tweedie)$coef$cond)),]
                                              },
                                              AIC=unlist(models)))
+    if(names(gomod) %in% "lm") return(c(OTU=feature, win.model="lm", 
+                                             results=if(length(levels(anly_data$all_data[,main]))>2) {
+                                               gdata::unmatrix(summary(lm)$coef$cond[grepl(main, rownames(summary(lm)$coef$cond)),], byrow=TRUE)
+                                             } else {
+                                               summary(lm)$coef$cond[grepl(main, rownames(summary(lm)$coef$cond)),]
+                                             },
+                                             AIC=unlist(models)))
+    if(names(gomod) %in% "cplm") return(c(OTU=feature, win.model="cplm", 
+                                             results=if(length(levels(anly_data$all_data[,main]))>2) {
+                                               gdata::unmatrix(summary(cplm)$coef$cond[grepl(main, rownames(summary(cplm)$coef$cond)),], byrow=TRUE)
+                                             } else {
+                                               summary(cplm)$coef$cond[grepl(main, rownames(summary(cplm)$coef$cond)),]
+                                             },
+                                             AIC=unlist(models)))
   }
 }
 
 
-many_model_script <- function(otu=NULL, data=NULL, phy=NULL, sampleid=NULL, subjectid=NULL, pct_pres=NULL, log_reads=NULL, model, main=NULL, cores=1, ref=NA, run_models=c("pois","negbin","zinfl","tweedie")) {
+many_model_script <- function(otu=NULL, data=NULL, phy=NULL, sampleid=NULL, subjectid=NULL, pct_pres=NULL, log_reads=NULL, model, main=NULL, cores=1, ref=NA, run_models=c("lm","cplm","pois","negbin","zinfl","tweedie")) {
   if(is.null(main)) main <- stringr::str_split(model, " +")[[1]][2]
   anly_data <- make_data(otu, data, phy, sampleid)
   filt_data <- filter_params(anly_data, pct_pres, log_reads)
@@ -229,4 +260,5 @@ return(taxon_results)
 }
 
 #myphy2 <- subset_samples(myphy, !Case.or.Control.Status.Full.Cohort %in% "" & Analysis.Visit %in% "Visit 1a")
-#my_results <- many_model_script(phy=myphy2, model="~ Case.or.Control.Status.Full.Cohort + Age.in.years", cores=10, ref="Control", run_models=c("pois","negbin","zinfl","tweedie"), subjectid = "Subject.Identifier.for.the.Study")
+#myphy3 <- filter_taxa(myphy2, function(x) sum(x) > 0, TRUE)
+#my_results <- many_model_script(phy=myphy3, model="~ Case.or.Control.Status.Full.Cohort + Age.in.years", cores=10, ref="Control", run_models=c("lm","cplm","pois","negbin","zinfl","tweedie"), subjectid = "Subject.Identifier.for.the.Study")
