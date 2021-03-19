@@ -1,5 +1,4 @@
 #Code to Run Adonis from Distance Matrix or OTU table
-   #Code CANNOT compute PERMANOVAs from OTU tables for Weighted or Unweighted UniFrac. You *MUST* use a distance matrix as generated in QIIME
 #July 06: Code updated to use the new "vegan" package, and specifically 'adonis2'. Additionally, features to print out information about variable format and sample total have been included.
 #Date Last Updated: July 06, 2018
 #Katie McCauley
@@ -19,7 +18,7 @@ if(pacman::p_version(vegan) == '2.5.6') {
    pacman::p_load(parallel, ape, ggplot2, lmerTest)
 }
 
-loopAdonis <- function(phy, workdir, method="bray", perms=999, save=TRUE, outputfile="adonis_results.csv", cores=1, verbose=TRUE, subjid, print_plot=TRUE, subset_var=NULL, subset_group=NULL) {
+loopAdonis <- function(phy, workdir=".", method="bray", perms=999, save=TRUE, outputfile="adonis_results.csv", cores=1, verbose=TRUE, subjid, print_plot=TRUE, subset_var=NULL, subset_group=NULL) {
    #First we set our working directory
   require(phyloseq)
    setwd(workdir)
@@ -86,15 +85,17 @@ loopAdonis <- function(phy, workdir, method="bray", perms=999, save=TRUE, output
 	if(sum(duplicated(sample_data(phyobj.ss)[,subjid]))>0) {
 	 lme.pc1 <- lmer(as.formula(paste0("Axis.1 ~", i , "+ (1|", subjid, ")")), data=MetaEFSubset.pcs)
 	 lme.pc2 <- lmer(as.formula(paste0("Axis.2 ~", i , "+ (1|", subjid, ")")), data=MetaEFSubset.pcs)
+         lme.pc3 <- lmer(as.formula(paste0("Axis.3 ~", i , "+ (1|", subjid, ")")), data=MetaEFSubset.pcs)
 	 p[i, "pval.pc1"] <- anova(lme.pc1)[,"Pr(>F)"]
 	 p[i, "pval.pc2"] <- anova(lme.pc2)[,"Pr(>F)"]
+         p[i, "pval.pc3"] <- anova(lme.pc3)[,"Pr(>F)"]
 	} else {
          p[i,"R2"] = l$R2[1] #print the R^2 value in the second column
          p[i,"pvalue"] = l$`Pr(>F)`[1] #print the p-value in the third column
 	}
   }
   }
-write.csv(p,file=paste0("results_", method,"_", subset_var,subset_group,".csv")) #this writes a csv, and will call it whatever you choose in your function (assuming you use save = TRUE)
+write.csv(p,file=paste0("results_", method,"_", subset_var,subset_group,".csv")) #this writes a csv, and will call it whatever you choose in your function
 }
 
 

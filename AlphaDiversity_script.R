@@ -27,7 +27,7 @@ alpha_diversity_analysis <- function(phy, subjectid, specified_variables=TRUE) {
     ## Generate Alpha Diversity Values
     sample_data(phy)$equitability <- diversity(t(otu_table(phy)))/log(specnumber(t(otu_table(phy))))
     sample_data(phy)$chao1 <- t(estimateR(t(otu_table(phy))))[,2]
-    sample_data(phy)$PD_whole_tree <- picante::pd(t(otu_table(phy)), phy_tree(phy))[,2]
+    sample_data(phy)$PD_whole_tree <- picante::pd(t(otu_table(phy)), phy_tree(phy))[,1]
     
     mydata <- data.frame(phy@sam_data)
     cont.alpha.div <- function(myvar,alpha,mydata) {
