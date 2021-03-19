@@ -1,7 +1,7 @@
 ## New Many-Model Script:
 
 pacman::p_load(gdata, pscl, stringr, MASS, tidyverse, foreach, phyloseq, parallel, tweedie, glmmTMB, cplm)
-## These are a set of functions to be used for the "many-model" script (currently supporting Poisson, Negative Binomial, Zero-Inflated Negative Binomial and Tweedie/CPLM, but planning to expand)
+## These are a set of functions to be used for the "many-model" script (currently supporting Linear Model, Compound Poisson Linear Model, Poisson, Negative Binomial, Zero-Inflated Negative Binomial and Tweedie)
 ## Example usage is : 
 ##    source("ManyModelScript_July2020.R")
 ##    final_results <- many_model_script(myotu, mydata2, sampleid=0, model="~ Case.or.Control.Status.Full.Cohort")
@@ -13,7 +13,7 @@ pacman::p_load(gdata, pscl, stringr, MASS, tidyverse, foreach, phyloseq, paralle
 ### phy        - your phyloseq object
 ### otu        - OTU table if not providing a phyloseq object
 ### data       - dataset if not providing a phyloseq object
-### model      - your statistical model which must start with a curly line. First variable will always be considered your main effect by default
+### model      - your statistical model which must start with a curly line followed by a space. First variable will always be considered your main effect by default
 ### sampleid   - a variable that matches your sample names to your data (if you didn't provide a phyloseq object)
 ### subjectid  - a variable that identifies subjects (this is how repeated measures analysis is initiated)
 ### pct_pres   - The percent prevalence threshold for your analysis (a value is picked by default, and you can change the value here)
@@ -21,7 +21,7 @@ pacman::p_load(gdata, pscl, stringr, MASS, tidyverse, foreach, phyloseq, paralle
 ### main       - The main effect of your analysis if it is not the first variable in your model
 ### cores      - The number of computational cores to use for your analysis (default=1)
 ### ref        - Reference group for your analysis (for instance, if you have Cases and Controls, R might choose Cases as your Reference group, but really you want controls because you want positive numbers to be increased in cases)
-### run_models - Models to analyze (options include: "pois","negbin","zinfl","tweedie" for Poisson, Negative Binomial, Zero-Inflated Negative Binomial, and Tweedie, respectively). You can also pick and choose these.
+### run_models - Models to analyze (options include: "lm","cplm","pois","negbin","zinfl","tweedie" for Linear Model, Compund Poisson Linear Model, Poisson, Negative Binomial, Zero-Inflated Negative Binomial, and Tweedie, respectively). You can also pick and choose these.
 
 
 ## Data imported for testing (Keeping for troubleshooting purposes)
@@ -105,12 +105,13 @@ variable_info <- function(data, model, main, ref=ref) {
 
 
 all_models <- function(anly_data, model, feature, run_models=run_models, main=NULL) {
-  if("lm" %in% run_models) { lm <- tryCatch(glm(as.formula(paste0(feature, model, "+ total_reads")), data=anly_data$all_data, family="gaussian"), error=function(e) NULL, warning=function(w) NULL)} else {lm <- NA}
-  if("cplm" %in% run_models) { cplm <- tryCatch(cpglm(as.formula(paste0(feature, model, "+ total_reads")), data=anly_data$all_data, optimizer="bobyqa"), error=function(e) NULL, warning=function(w) NULL)} else {cplm <- NA}
-  if("pois" %in% run_models) { pois <- tryCatch(glm(as.formula(paste0(feature, model, "+ total_reads")), data=anly_data$all_data, family="poisson"), error=function(e) NULL, warning=function(w) NULL)} else {pois <- NA}
-  if("negbin" %in% run_models) { negbin <- tryCatch(MASS::glm.nb(as.formula(paste0(feature, model, "+ total_reads")), data=anly_data$all_data), error=function(e) NULL, warning=function(w) NULL)} else {negbin <- NA}
-  if("zinfl" %in% run_models) { zinfl <- tryCatch(pscl::zeroinfl(as.formula(paste0(feature, model, "+ total_reads", "| 1")), data=anly_data$all_data, dist="negbin"), error=function(e) NULL, warning=function(w) NULL)} else {zinfl <- NA}
-  if("tweedie" %in% run_models) { tweedie <- tryCatch(glm(as.formula(paste0(feature, model, "+ total_reads")), data=anly_data$all_data, family=statmod::tweedie(var.power=1.5)), error=function(e) NULL, warning=function(w) NULL) } else {tweedie <- NA}
+  adj <- ifelse(length(unique(anly_data$all_data$total_reads))>1, "+ total_reads", "")
+  if("lm" %in% run_models) { lm <- tryCatch(glm(as.formula(paste0(feature, model, adj)), data=anly_data$all_data, family="gaussian"), error=function(e) NULL, warning=function(w) NULL)} else {lm <- NA}
+  if("cplm" %in% run_models) { cplm <- tryCatch(cpglm(as.formula(paste0(feature, model, adj)), data=anly_data$all_data), error=function(e) NULL, warning=function(w) NULL)} else {cplm <- NA}
+  if("pois" %in% run_models) { pois <- tryCatch(glm(as.formula(paste0(feature, model, adj)), data=anly_data$all_data, family="poisson"), error=function(e) NULL, warning=function(w) NULL)} else {pois <- NA}
+  if("negbin" %in% run_models) { negbin <- tryCatch(MASS::glm.nb(as.formula(paste0(feature, model, adj)), data=anly_data$all_data), error=function(e) NULL, warning=function(w) NULL)} else {negbin <- NA}
+  if("zinfl" %in% run_models) { zinfl <- tryCatch(pscl::zeroinfl(as.formula(paste0(feature, model, adj, "| 1")), data=anly_data$all_data, dist="negbin"), error=function(e) NULL, warning=function(w) NULL)} else {zinfl <- NA}
+  if("tweedie" %in% run_models) { tweedie <- tryCatch(glm(as.formula(paste0(feature, model, adj)), data=anly_data$all_data, family=statmod::tweedie(var.power=1.5)), error=function(e) NULL, warning=function(w) NULL) } else {tweedie <- NA}
   models <- sapply(run_models, function(x) ifelse(is.null(get(x)), NA, ifelse(is.na(AIC(get(x))), AICtweedie(get(x)), AIC(get(x)))))
   gomod <- tryCatch(which.min(models))
   if(length(gomod)>0) {
@@ -152,9 +153,11 @@ all_models <- function(anly_data, model, feature, run_models=run_models, main=NU
                                              AIC=unlist(models)))
     if(names(gomod) %in% "cplm") return(c(OTU=feature, win.model="cplm", 
                                              results=if(length(levels(anly_data$all_data[,main]))>2) {
-                                               gdata::unmatrix(summary(cplm)$coef[grepl(main, rownames(summary(cplm)$coef)),], byrow=TRUE)
+                                               out <- capture.output(cplm <- invisible(summary(cplm)$coef))
+                                               gdata::unmatrix(cplm[grepl(main, rownames(cplm)),], byrow=TRUE)
                                              } else {
-                                               summary(cplm)$coef[grepl(main, rownames(summary(cplm)$coef)),]
+                                               out <- capture.output(cplm <- invisible(summary(cplm)$coef))
+                                               cplm[grepl(main, rownames(cplm)),]
                                              },
                                              AIC=unlist(models)))
   }
@@ -162,12 +165,13 @@ all_models <- function(anly_data, model, feature, run_models=run_models, main=NU
 
 #### This would contain mixed-effects models
 mixed_models <- function(anly_data, model, feature, run_models=run_models, main=NULL, subjid) {
-  if("lm" %in% run_models) { pois <- tryCatch(glmmTMB(as.formula(paste0(feature, model, "+ total_reads", "+ (1|", subjid, ")")), data=anly_data$all_data, family="gaussian"), error=function(e) NULL, warning=function(w) NULL)} else {pois <- NA}
-  if("cplm" %in% run_models) { pois <- tryCatch(glmmTMB(as.formula(paste0(feature, model, "+ total_reads", "+ (1|", subjid, ")")), data=anly_data$all_data, family="compois"), error=function(e) NULL, warning=function(w) NULL)} else {pois <- NA}
-  if("pois" %in% run_models) { pois <- tryCatch(glmmTMB(as.formula(paste0(feature, model, "+ total_reads", "+ (1|", subjid, ")")), data=anly_data$all_data, family="poisson"), error=function(e) NULL, warning=function(w) NULL)} else {pois <- NA}
-  if("negbin" %in% run_models) { negbin <- tryCatch(glmmTMB(as.formula(paste0(feature, model, "+ total_reads", "+ (1|", subjid, ")")), data=anly_data$all_data, family="nbinom1"), error=function(e) NULL, warning=function(w) NULL)} else {negbin <- NA}
-  if("zinfl" %in% run_models) { zinfl <- tryCatch(glmmTMB(as.formula(paste0(feature, model, "+ total_reads", "+ (1|", subjid, ")")), data=anly_data$all_data, family="nbinom1", ziformula=~1), error=function(e) NULL, warning=function(w) NULL)} else {zinfl <- NA}
-  if("tweedie" %in% run_models) { tweedie <- tryCatch(glmmTMB(as.formula(paste0(feature, model, "+ total_reads", "+ (1|", subjid, ")")), data=anly_data$all_data, family="tweedie"), error=function(e) NULL, warning=function(w) NULL) } else {tweedie <- NA}
+  adj <- ifelse(length(unique(anly_data$all_data$total_reads))>1, "+ total_reads", "")
+  if("lm" %in% run_models) { pois <- tryCatch(glmmTMB(as.formula(paste0(feature, model, adj, "+ (1|", subjid, ")")), data=anly_data$all_data, family="gaussian"), error=function(e) NULL, warning=function(w) NULL)} else {pois <- NA}
+  if("cplm" %in% run_models) { pois <- tryCatch(glmmTMB(as.formula(paste0(feature, model, adj, "+ (1|", subjid, ")")), data=anly_data$all_data, family="compois"), error=function(e) NULL, warning=function(w) NULL)} else {pois <- NA}
+  if("pois" %in% run_models) { pois <- tryCatch(glmmTMB(as.formula(paste0(feature, model, adj, "+ (1|", subjid, ")")), data=anly_data$all_data, family="poisson"), error=function(e) NULL, warning=function(w) NULL)} else {pois <- NA}
+  if("negbin" %in% run_models) { negbin <- tryCatch(glmmTMB(as.formula(paste0(feature, model, adj, "+ (1|", subjid, ")")), data=anly_data$all_data, family="nbinom1"), error=function(e) NULL, warning=function(w) NULL)} else {negbin <- NA}
+  if("zinfl" %in% run_models) { zinfl <- tryCatch(glmmTMB(as.formula(paste0(feature, model, adj, "+ (1|", subjid, ")")), data=anly_data$all_data, family="nbinom1", ziformula=~1), error=function(e) NULL, warning=function(w) NULL)} else {zinfl <- NA}
+  if("tweedie" %in% run_models) { tweedie <- tryCatch(glmmTMB(as.formula(paste0(feature, model, adj, "+ (1|", subjid, ")")), data=anly_data$all_data, family="tweedie"), error=function(e) NULL, warning=function(w) NULL) } else {tweedie <- NA}
   models <- sapply(run_models, function(x) ifelse(is.null(get(x)), NA, ifelse(is.na(AIC(get(x))), AICtweedie(get(x)), AIC(get(x)))))
   gomod <- tryCatch(which.min(models))
   if(length(gomod)>0) {
@@ -242,16 +246,18 @@ many_model_script <- function(otu=NULL, data=NULL, phy=NULL, sampleid=NULL, subj
     mutate_at(vars(-starts_with(c(!!ref, "OTU"))), list(mean_diff = ~ . - .data[[ref]]))
   taxon_results <- data.frame(t(data.frame(stat_anly))) %>%
     rename_at(vars(contains(main)), function(x) sub(main,"", x)) %>%
-    mutate_at(vars(contains("Pr...")), list(p.fdr=function(x) p.adjust(as.numeric(as.character(x)), method="fdr"))) %>%
+    mutate_at(vars(contains("results")), list(function(x) as.numeric(as.character(x)))) %>%
+    mutate_at(vars(contains("Pr...")), list(p.fdr=function(x) p.adjust(x, method="fdr"))) %>%
     mutate_all(unlist) %>% 
     left_join(differences, by="OTU")
   } else {
     taxon_results <- data.frame(t(data.frame(stat_anly))) %>%
       rename_at(vars(contains(main)), function(x) sub(main,"", x)) %>%
-      mutate_at(vars(contains("Pr...")), list(p.fdr=function(x) p.adjust(as.numeric(as.character(x)), method="fdr"))) %>%
+      mutate_at(vars(contains("results")), list(function(x) as.numeric(as.character(x)))) %>%
+      mutate_at(vars(contains("Pr...")), list(p.fdr=function(x) p.adjust(x, method="fdr"))) %>%
       mutate_all(unlist)
   }
-if(!is.null(phy) & !is.null(tax_table(phy)@.Data)) taxon_results <- merge(taxon_results, tax_table(phy)@.Data, by.x="OTU",by.y=0)
+if(!is.null(phy) & !is.null(tax_table(phy, errorIfNULL=FALSE))) taxon_results <- merge(taxon_results, tax_table(phy)@.Data, by.x="OTU",by.y=0)
   if(is.null(phy)) {
     otu.tax <- cbind(otu=rownames(otu), taxonomy=as.character(otu$taxonomy))
     taxon_results <- merge(taxon_results, otu.tax, by.x="OTU", by.y="otu")
