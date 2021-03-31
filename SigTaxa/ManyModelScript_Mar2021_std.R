@@ -1,6 +1,6 @@
 ## New Many-Model Script:
 
-pacman::p_load(gdata, pscl, stringr, MASS, tidyverse, foreach, phyloseq, parallel, tweedie, glmmTMB, cplm)
+pacman::p_load(gdata, pscl, stringr, MASS, tidyverse, foreach, phyloseq, parallel, tweedie, glmmTMB, cplm, pbmcapply)
 ## These are a set of functions to be used for the "many-model" script (currently supporting Linear Model, Compound Poisson Linear Model, Poisson, Negative Binomial, Zero-Inflated Negative Binomial and Tweedie)
 ## Example usage is : 
 ##    source("ManyModelScript_July2020.R")
@@ -222,7 +222,7 @@ mixed_models <- function(anly_data, model, feature, run_models=run_models, main=
 }
 
 
-many_model_script <- function(otu=NULL, data=NULL, phy=NULL, sampleid=NULL, subjectid=NULL, pct_pres=NULL, log_reads=NULL, model, main=NULL, cores=1, ref=NA, run_models=c("lm","cplm","pois","negbin","zinfl","tweedie")) {
+many_model_script <- function(otu=NULL, data=NULL, phy=NULL, sampleid=NULL, subjectid=NULL, pct_pres=NULL, log_reads=NULL, model, main=NULL, cores=1, ref=NA, run_models=c("lm","pois","negbin","zinfl","tweedie")) {
   if(is.null(main)) main <- stringr::str_split(model, " +")[[1]][2]
   anly_data <- make_data(otu, data, phy, sampleid)
   filt_data <- filter_params(anly_data, pct_pres, log_reads)
@@ -230,11 +230,12 @@ many_model_script <- function(otu=NULL, data=NULL, phy=NULL, sampleid=NULL, subj
   ref <- levels(filt_data$all_data[,main])[1]
   if(is.null(subjectid)) { print("Please provide a subjectID before continuing.") ; stop() }
   if(sum(duplicated(filt_data$all_data[,subjectid])) == 0) {
-    print("Using Fixed-Effects Models")
-    stat_anly <- mcmapply(all_models, feature=filt_data$taxa_list, MoreArgs = list(model=model, anly_data=filt_data, main=main, run_models=run_models), mc.cores=cores)
+    print("Running Fixed-Effects Models")
+    stat_anly <- pbmcmapply(all_models, feature=filt_data$taxa_list, MoreArgs = list(model=model, anly_data=filt_data, main=main, run_models=run_models), mc.cores=cores)
+    print("Models finished calculating...")
   } else {
-    print("Using Mixed-Effects Models")
-    stat_anly <- mcmapply(mixed_models, feature=filt_data$taxa_list, MoreArgs = list(model=model, anly_data=filt_data, main=main, run_models=run_models, subjid=subjectid), mc.cores=cores)
+    print("Running Mixed-Effects Models")
+    stat_anly <- pbmcmapply(mixed_models, feature=filt_data$taxa_list, MoreArgs = list(model=model, anly_data=filt_data, main=main, run_models=run_models, subjid=subjectid), mc.cores=cores)
   }
   if(is.factor(filt_data$all_data[,main])) {
   differences <- filt_data$all_data %>% 
