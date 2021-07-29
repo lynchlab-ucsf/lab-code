@@ -148,10 +148,15 @@ hclust_func <- function(distmat, phy, clustno=which.max(avg.sil), result_prefix 
       cuts <- cutree(myhclust, k=i)
       avg.sil[i] <- summary(silhouette(cuts, as.dist(clust.dat)))$si.summary["Mean"]
     }
+  avg.sil.dat <- data.frame(cluster.n=1:18, avg.sil=avg.sil)
   if(!is.null(result_prefix)) {
-    #ggsave(paste0(result_prefix, "_silhouetteplot.pdf"),  plot(avg.sil), device="pdf", height=5, width=7)
+    ggsave(paste0(result_prefix, "_silhouetteplot.pdf"),  ggplot(avg.sil.dat, aes(x=cluster.n, y=avg.sil)) + 
+             geom_point(size=3) + 
+             xlab("Number of Clusters") + 
+             ylab("Average Silhouette Statistic") + 
+             xlim(0,18), device="pdf", height=5, width=7)
   } else {
-    plot(avg.sil)
+    ggplot(avg.sil)
   }
   
   choose.clust <- cutree(myhclust, k=clustno)
@@ -175,7 +180,8 @@ hclust_func <- function(distmat, phy, clustno=which.max(avg.sil), result_prefix 
   }
   print(table(temp$cluster))
 
-  temp <- temp[labels(clust.dat),]
+  temp <- temp[!is.na(temp$cluster), ]
+  clust.dat <- clust.dat[rownames(temp), rownames(temp)]
   print(adonis2(clust.dat ~ cluster, data=temp))
 
   sample_data(phy) <- temp
