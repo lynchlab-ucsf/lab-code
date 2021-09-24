@@ -245,14 +245,22 @@ many_model_script <- function(otu=NULL, data=NULL, phy=NULL, sampleid=NULL, subj
     t() %>% data.frame(check.names = F) %>% 
     rownames_to_column("OTU") %>% 
     mutate_at(vars(-starts_with(c(!!ref, "OTU"))), list(mean_diff = ~ . - .data[[ref]]))
-  taxon_results <- data.frame(t(data.frame(stat_anly))) %>%
+  taxon_results <- if(!class(stat_anly) %in% "matrix") {
+    data.frame(t(data.frame(stat_anly[[1]])))
+  } else {
+    data.frame(t(data.frame(stat_anly)))
+  } %>%
     rename_at(vars(contains(main)), function(x) sub(main,"", x)) %>%
     mutate_at(vars(contains("results")), list(function(x) as.numeric(as.character(x)))) %>%
     mutate_at(vars(contains("Pr...")), list(p.fdr=function(x) p.adjust(x, method="fdr"))) %>%
     mutate_all(unlist) %>% 
     left_join(differences, by="OTU")
   } else {
-    taxon_results <- data.frame(t(data.frame(stat_anly))) %>%
+    taxon_results <- if(!class(stat_anly) %in% "matrix") {
+      data.frame(t(data.frame(stat_anly[[1]])))
+    } else {
+      data.frame(t(data.frame(stat_anly)))
+    } %>%
       rename_at(vars(contains(main)), function(x) sub(main,"", x)) %>%
       mutate_at(vars(contains("results")), list(function(x) as.numeric(as.character(x)))) %>%
       mutate_at(vars(contains("Pr...")), list(p.fdr=function(x) p.adjust(x, method="fdr"))) %>%
