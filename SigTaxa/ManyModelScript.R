@@ -232,10 +232,12 @@ many_model_script <- function(otu=NULL, data=NULL, phy=NULL, sampleid=NULL, subj
   if(sum(duplicated(filt_data$all_data[,subjectid])) == 0) {
     print("Running Fixed-Effects Models")
     stat_anly <- pbmcmapply(all_models, feature=filt_data$taxa_list, MoreArgs = list(model=model, anly_data=filt_data, main=main, run_models=run_models), mc.cores=cores)
+    stat_anly <- if(class(stat_anly) %in% "list") stat_anly$value else stat_anly
     print("Models finished calculating...")
   } else {
     print("Running Mixed-Effects Models")
     stat_anly <- pbmcmapply(mixed_models, feature=filt_data$taxa_list, MoreArgs = list(model=model, anly_data=filt_data, main=main, run_models=run_models, subjid=subjectid), mc.cores=cores)
+    stat_anly <- if(class(stat_anly) %in% "list") stat_anly$value else stat_anly
   }
   if(is.factor(filt_data$all_data[,main])) {
   differences <- filt_data$all_data %>% 
@@ -245,22 +247,15 @@ many_model_script <- function(otu=NULL, data=NULL, phy=NULL, sampleid=NULL, subj
     t() %>% data.frame(check.names = F) %>% 
     rownames_to_column("OTU") %>% 
     mutate_at(vars(-starts_with(c(!!ref, "OTU"))), list(mean_diff = ~ . - .data[[ref]]))
-  taxon_results <- if(!class(stat_anly) %in% "matrix") {
-    data.frame(t(data.frame(stat_anly[[1]])))
-  } else {
-    data.frame(t(data.frame(stat_anly)))
-  } %>%
+  taxon_results <- data.frame(t(data.frame(stat_anly))) %>%
     rename_at(vars(contains(main)), function(x) sub(main,"", x)) %>%
     mutate_at(vars(contains("results")), list(function(x) as.numeric(as.character(x)))) %>%
     mutate_at(vars(contains("Pr...")), list(p.fdr=function(x) p.adjust(x, method="fdr"))) %>%
+    mutate_at("OTU", as.character) %>% 
     mutate_all(unlist) %>% 
     left_join(differences, by="OTU")
   } else {
-    taxon_results <- if(!class(stat_anly) %in% "matrix") {
-      data.frame(t(data.frame(stat_anly[[1]])))
-    } else {
-      data.frame(t(data.frame(stat_anly)))
-    } %>%
+    taxon_results <- data.frame(t(data.frame(stat_anly))) %>%
       rename_at(vars(contains(main)), function(x) sub(main,"", x)) %>%
       mutate_at(vars(contains("results")), list(function(x) as.numeric(as.character(x)))) %>%
       mutate_at(vars(contains("Pr...")), list(p.fdr=function(x) p.adjust(x, method="fdr"))) %>%
