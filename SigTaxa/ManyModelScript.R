@@ -43,7 +43,7 @@ make_data <- function(otu=NULL, data=NULL, phy=NULL, sampleid=NULL) {
   }
   if(!is.null(phy)) {
     print(phy)
-    all_data <- merge(sample_data(phy), t(otu_table(phy)), by=0)
+    if(taxa_are_rows(phy)) all_data <- merge(sample_data(phy), t(otu_table(phy)), by=0) else all_data <- merge(sample_data(phy), otu_table(phy), by=0)
     taxa_list <- taxa_names(phy)
   }
   container <- list(all_data=all_data, taxa_list=taxa_list)
@@ -232,12 +232,12 @@ many_model_script <- function(otu=NULL, data=NULL, phy=NULL, sampleid=NULL, subj
   if(sum(duplicated(filt_data$all_data[,subjectid])) == 0) {
     print("Running Fixed-Effects Models")
     stat_anly <- pbmcmapply(all_models, feature=filt_data$taxa_list, MoreArgs = list(model=model, anly_data=filt_data, main=main, run_models=run_models), mc.cores=cores)
-    stat_anly <- if(class(stat_anly) %in% "list") stat_anly$value else stat_anly
+    stat_anly <- if(any(class(stat_anly) %in% "list")) stat_anly$value else stat_anly
     print("Models finished calculating...")
   } else {
     print("Running Mixed-Effects Models")
     stat_anly <- pbmcmapply(mixed_models, feature=filt_data$taxa_list, MoreArgs = list(model=model, anly_data=filt_data, main=main, run_models=run_models, subjid=subjectid), mc.cores=cores)
-    stat_anly <- if(class(stat_anly) %in% "list") stat_anly$value else stat_anly
+    stat_anly <- if(any(class(stat_anly) %in% "list")) stat_anly$value else stat_anly
   }
   if(is.factor(filt_data$all_data[,main])) {
   differences <- filt_data$all_data %>% 
