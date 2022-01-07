@@ -7,7 +7,9 @@ require(RColorBrewer)
     
 phyloseq <- filter_taxa(phyloseq, function(x) sum(x) > 0, TRUE)
 results <- list()
+print("Making network ...")
 sparcc_res <- sparcc(t(otu_table(phyloseq)))
+print("Network Complete! Preparing results ...")
 sparcc_graph <- sparcc_res$Cor >= cutoff
 diag(sparcc_graph) <- 0
 sparcc_graph <- Matrix::Matrix(sparcc_graph)
@@ -61,6 +63,7 @@ results$plot <- plot(min.ig.mod, layout=l, vertex.color=my_color)
 results$plot <- legend("bottomleft", legend=label.list, fill = coul, inset = c(-0.1, -0.1),pt.cex=3, cex=0.6)
 results$plot <- title(fig.name)
 return(results)
+print("...done!")
 }
                                  
 #init_network_test <- make_network(wisc2mo_filt)
