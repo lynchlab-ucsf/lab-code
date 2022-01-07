@@ -166,13 +166,13 @@ all_models <- function(anly_data, model, feature, run_models=run_models, main=NU
 #### This would contain mixed-effects models
 mixed_models <- function(anly_data, model, feature, run_models=run_models, main=NULL, subjid) {
   adj <- ifelse(length(unique(anly_data$all_data$total_reads))>1, "+ total_reads", "")
-  if("lm" %in% run_models) { lm <- tryCatch(glmmTMB(as.formula(paste0(feature, model, adj, "+ (1|", subjid, ")")), data=anly_data$all_data, family="gaussian"), error=function(e) NULL, warning=function(w) NULL)} else {pois <- NA}
-  if("cplm" %in% run_models) { cplm <- tryCatch(glmmTMB(as.formula(paste0(feature, model, adj, "+ (1|", subjid, ")")), data=anly_data$all_data, family="compois"), error=function(e) NULL, warning=function(w) NULL)} else {pois <- NA}
-  if("pois" %in% run_models) { pois <- tryCatch(glmmTMB(as.formula(paste0(feature, model, adj, "+ (1|", subjid, ")")), data=anly_data$all_data, family="poisson"), error=function(e) NULL, warning=function(w) NULL)} else {pois <- NA}
-  if("negbin" %in% run_models) { negbin <- tryCatch(glmmTMB(as.formula(paste0(feature, model, adj, "+ (1|", subjid, ")")), data=anly_data$all_data, family="nbinom1"), error=function(e) NULL, warning=function(w) NULL)} else {negbin <- NA}
-  if("zinfl" %in% run_models) { zinfl <- tryCatch(glmmTMB(as.formula(paste0(feature, model, adj, "+ (1|", subjid, ")")), data=anly_data$all_data, family="nbinom1", ziformula=~1), error=function(e) NULL, warning=function(w) NULL)} else {zinfl <- NA}
-  if("tweedie" %in% run_models) { tweedie <- tryCatch(glmmTMB(as.formula(paste0(feature, model, adj, "+ (1|", subjid, ")")), data=anly_data$all_data, family="tweedie"), error=function(e) NULL, warning=function(w) NULL) } else {tweedie <- NA}
-  models <- sapply(run_models, function(x) ifelse(is.null(get(x)), NA, ifelse(is.na(AIC(get(x))), AICtweedie(get(x)), AIC(get(x)))))
+  if("lm" %in% run_models) { lm <- tryCatch(suppressWarnings(glmmTMB(as.formula(paste0(feature, model, adj, "+ (1|", subjid, ")")), data=anly_data$all_data, family="gaussian")), error=function(e) NULL)} else {lm <- NA}
+  if("cplm" %in% run_models) { cplm <- tryCatch(suppressWarnings(glmmTMB(as.formula(paste0(feature, model, adj, "+ (1|", subjid, ")")), data=anly_data$all_data, family="compois")), error=function(e) NULL)} else {cplm <- NA}
+  if("pois" %in% run_models) { pois <- tryCatch(suppressWarnings(glmmTMB(as.formula(paste0(feature, model, adj, "+ (1|", subjid, ")")), data=anly_data$all_data, family="poisson")), error=function(e) NULL)} else {pois <- NA}
+  if("negbin" %in% run_models) { negbin <- tryCatch(suppressWarnings(glmmTMB(as.formula(paste0(feature, model, adj, "+ (1|", subjid, ")")), data=anly_data$all_data, family="nbinom1")), error=function(e) NULL)} else {negbin <- NA}
+  if("zinfl" %in% run_models) { zinfl <- tryCatch(suppressWarnings(glmmTMB(as.formula(paste0(feature, model, adj, "+ (1|", subjid, ")")), data=anly_data$all_data, family="nbinom1", ziformula=~1)), error=function(e) NULL)} else {zinfl <- NA}
+  if("tweedie" %in% run_models) { tweedie <- tryCatch(suppressWarnings(glmmTMB(as.formula(paste0(feature, model, adj, "+ (1|", subjid, ")")), data=anly_data$all_data, family="tweedie")), error=function(e) NULL) } else {tweedie <- NA}
+  models <- sapply(run_models, function(x) ifelse(is.null(get(x)), NA, ifelse(is.na(AIC(get(x))), AIC(get(x)), AIC(get(x)))))
   gomod <- tryCatch(which.min(models))
   if(length(gomod)>0) {
     if(is.null(main)) main <- stringr::str_split(model, " +")[[1]][2]
