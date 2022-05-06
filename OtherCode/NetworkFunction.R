@@ -55,7 +55,7 @@ results$table <- OTUtab %>%
 V(min.ig.mod)$size=4
 V(min.ig.mod)$label=""
 coul <- c(brewer.pal(8, "Set1"), brewer.pal(8, "Set2"))
-label.list <- names(sort(table(as.factor(V(min.ig.mod)$value)), decreasing=TRUE))[2:17]
+label.list <- names(sort(table(as.factor(V(min.ig.mod)$value)), decreasing=TRUE))[1:16]
 my_color <- coul[as.numeric(factor(V(min.ig.mod)$value, levels=label.list))]
 
 l <- layout_with_fr(min.ig.mod, niter=50)

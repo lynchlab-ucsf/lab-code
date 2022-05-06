@@ -48,7 +48,7 @@ beta_diversity_loop <- function(phy, dists=c("bray","wunifrac","canberra","unifr
   all_results <- list()
   for(i in 1:length(all_dists)) {
     print(paste("Running PERMANOVAs for Distance Matrix", i))
-    all_results[[i]] <- t(sapply(var_list, var_anly, indata=phy, dist_obj=all_dists[[i]]))
+    all_results[[dists[i]]] <- t(sapply(var_list, var_anly, indata=phy, dist_obj=all_dists[[i]]))
   }
   return(all_results)
 }
