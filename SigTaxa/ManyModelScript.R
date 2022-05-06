@@ -28,7 +28,7 @@ pacman::p_load(gdata, pscl, stringr, MASS, tidyverse, foreach, phyloseq, paralle
 ## Data imported for testing (Keeping for troubleshooting purposes)
 #myotu <- read.table("/data/Users/kmccauley/MUPPITS/OTUtables/MUPPITS_OTUtable_initial.txt", header=T, check.names=F, sep="\t",comment="", row.names=1, skip=1)
 #mydata <- read.csv("/data/Users/kmccauley/MUPPITS/Analysis_Data/MUPPITS_Merged_Mapping_UCSF_withDomGen.csv", row.names=1)
-myphy <- readRDS("/wynton/group/lynch/kmccauley/URECA_Stool_16s/URECA_30k_phy_ige.rds")
+#myphy <- readRDS("/wynton/group/lynch/kmccauley/URECA_Stool_16s/URECA_30k_phy_ige.rds")
 #mydata2 <- mydata[!mydata$Case.or.Control.Status.Full.Cohort %in% "", ]
 
 print("UPDATE as of 5/6: The output of this script has been significantly simplified. Your previous plotting script will no longer work. Review the output before plotting.")
@@ -287,8 +287,8 @@ many_model_script <- function(otu=NULL, data=NULL, phy=NULL, sampleid=NULL, subj
     mutate_at(vars(-starts_with(c(!!ref, "OTU"))), list(mean_diff = ~ . - .data[[ref]]))
   taxon_results <- data.frame(t(data.frame(stat_anly))) %>%
     rename_at(vars(contains(main)), function(x) sub(main,"", x)) %>%
-    select(!contains(c("Std..Error","t.value"))) %>%
-    rename_with(~ gsub("Pr...t..","Pvalue", .x)) %>% 
+    select(!contains(c("Std..Error",".value"))) %>%
+    rename_with(~ gsub("Pr......","Pvalue", .x)) %>% 
     rename_with(~ gsub("results.","", .x)) %>% 
     mutate_at(vars(contains("results")), list(function(x) as.numeric(as.character(x)))) %>%
     mutate_at(vars(contains("Pvalue")), list(p.fdr=function(x) p.adjust(x, method="fdr"))) %>%
@@ -298,8 +298,8 @@ many_model_script <- function(otu=NULL, data=NULL, phy=NULL, sampleid=NULL, subj
   } else {
     taxon_results <- data.frame(t(data.frame(stat_anly))) %>%
       rename_at(vars(contains(main)), function(x) sub(main,"", x)) %>%
-      select(!contains(c("Std..Error","t.value"))) %>%
-      rename_with(~ gsub("Pr...t..","Pvalue", .x)) %>% 
+      select(!contains(c("Std..Error",".value"))) %>%
+      rename_with(~ gsub("Pr......","Pvalue", .x)) %>% 
       rename_with(~ gsub("results.","", .x)) %>% 
       mutate_at(vars(contains("results")), list(function(x) as.numeric(as.character(x)))) %>%
       mutate_at(vars(contains("Pvalue")), list(p.fdr=function(x) p.adjust(x, method="fdr"))) %>%
@@ -313,8 +313,8 @@ if(!is.null(phy) & !is.null(tax_table(phy, errorIfNULL=FALSE))) taxon_results <-
 return(taxon_results)
 }
 
-my_phy_filt <- subset_samples(myphy, !is.na(pheno_y10))
-my_phy_filt <- filter_taxa(my_phy_filt, function(x) sum(x) > 0, TRUE)
-my_phy_filt_test <- my_phy_filt
-tax_table(my_phy_filt_test) <- NULL
-my_results <- many_model_script(phy=my_phy_filt_test, model="~ pheno_y10", cores=2, subjectid = "studyid", pct_pres=0.2)
+# my_phy_filt <- subset_samples(myphy, !is.na(pheno_y10))
+# my_phy_filt <- filter_taxa(my_phy_filt, function(x) sum(x) > 0, TRUE)
+# my_phy_filt_test <- my_phy_filt
+# tax_table(my_phy_filt_test) <- NULL
+# my_results <- many_model_script(phy=my_phy_filt_test, model="~ pheno_y10", cores=2, subjectid = "studyid", pct_pres=0.2)
