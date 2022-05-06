@@ -1,5 +1,4 @@
 ## New Many-Model Script:
-## Working on modifications -- Please don't use this yet!
 
 pacman::p_load(gdata, pscl, stringr, MASS, tidyverse, foreach, phyloseq, parallel, tweedie, glmmTMB, cplm, pbmcapply)
 ## These are a set of functions to be used for the "many-model" script (currently supporting Linear Model, Compound Poisson Linear Model, Poisson, Negative Binomial, Zero-Inflated Negative Binomial and Tweedie)
@@ -28,12 +27,8 @@ pacman::p_load(gdata, pscl, stringr, MASS, tidyverse, foreach, phyloseq, paralle
 ## Data imported for testing (Keeping for troubleshooting purposes)
 #myotu <- read.table("/data/Users/kmccauley/MUPPITS/OTUtables/MUPPITS_OTUtable_initial.txt", header=T, check.names=F, sep="\t",comment="", row.names=1, skip=1)
 #mydata <- read.csv("/data/Users/kmccauley/MUPPITS/Analysis_Data/MUPPITS_Merged_Mapping_UCSF_withDomGen.csv", row.names=1)
-#myphy <- readRDS("/wynton/group/lynch/kmccauley/URECA_Stool_16s/URECA_30k_phy_ige.rds")
+#myphy <- readRDS("/data/Users/kmccauley/MUPPITS/OTUtables/usearch_nonrare_phyloseq_amend.RData")
 #mydata2 <- mydata[!mydata$Case.or.Control.Status.Full.Cohort %in% "", ]
-
-print("UPDATE as of 5/6: The output of this script has been significantly simplified. Your previous plotting script will no longer work. Review the output before plotting.")
-print("UPDATE as of 5/6: Poisson has been removed from the list of models by default (and your results may change). If you would like to force it, specify run_models=run_models=c('lm','pois','negbin','zinfl','tweedie'), but this is not recommended.")
-print("UPDATE as of 5/6: This script should theoretically work for metabolomics data too -- I think I've fixed the 'bug'. If you encounter issues, please submit a bug report.")
 
 make_data <- function(otu=NULL, data=NULL, phy=NULL, sampleid=NULL) {
   ## If a phyloseq object isn't provided, but an OTU table and sample data *is* provided.
@@ -95,8 +90,7 @@ filter_params <- function(tokeep, pct_pres=NULL, log_reads=NULL) {
 
 variable_info <- function(data, model, main, ref=ref) {
   print(paste0("Your model is: ", model, " and your variable of interest is: ", main))
-  if(is.character(data$all_data[,main]) | is.factor(data$all_data[,main])) {
-    data$all_data[,main] <- factor(data$all_data[,main])
+  if(is.factor(data$all_data[,main])) {
   init_ref <- levels(data$all_data[,main])[1]
   print(table(data$all_data[,main]))
   if(!is.na(ref) & !init_ref == ref) {
@@ -126,71 +120,46 @@ all_models <- function(anly_data, model, feature, run_models=run_models, main=NU
                                            results=if(length(levels(anly_data$all_data[,main]))>2) {
                                              gdata::unmatrix(summary(zinfl)$coef$count[grepl(main, rownames(summary(zinfl)$coef$count)),], byrow=TRUE)
                                              } else {
-                                               modl <- summary(zinfl)$coef$count[grepl(main, rownames(summary(zinfl)$coef$count)),]
-                                               if(nrow(modl) > 1) {
-                                                 obj <- c("Est"=modl[,1],"Pvalue"=modl[,4])
-                                               } else {
-                                                 obj <- c("Est"=modl[[1]], "Pvalue"=modl[[4]])
-                                               }
-                                             },
+                                               summary(zinfl)$coef$count[grepl(main, rownames(summary(zinfl)$coef$count)),]
+                                              },
                                            AIC=unlist(models)))
     if(names(gomod) %in% "negbin") return(c(OTU=feature, win.model="negbin",
                                             results=if(length(levels(anly_data$all_data[,main]))>2) {
                                               gdata::unmatrix(summary(negbin)$coef[grepl(main, rownames(summary(negbin)$coef)),], byrow=TRUE)
                                             } else {
-                                              modl <- summary(negbin)$coef[grepl(main, rownames(summary(negbin)$coef)),]
-                                              if(nrow(modl) > 1) {
-                                                obj <- c("Est"=modl[,1],"Pvalue"=modl[,4])
-                                              } else {
-                                                obj <- c("Est"=modl[[1]], "Pvalue"=modl[[4]])
-                                              }
+                                              summary(negbin)$coef[grepl(main, rownames(summary(negbin)$coef)),]
                                             },
                                             AIC=unlist(models)))
     if(names(gomod) %in% "pois") return(c(OTU=feature, win.model="pois", 
                                           results=if(length(levels(anly_data$all_data[,main]))>2) {
                                             gdata::unmatrix(summary(pois)$coef[grepl(main, rownames(summary(pois)$coef)),], byrow=TRUE)
                                           } else {
-                                            modl <- summary(pois)$coef$count[grepl(main, rownames(summary(pois)$coef$count)),]
-                                            if(nrow(modl) > 1) {
-                                              obj <- c("Est"=modl[,1],"Pvalue"=modl[,4])
-                                            } else {
-                                              obj <- c("Est"=modl[[1]], "Pvalue"=modl[[4]])
-                                            }
+                                            summary(pois)$coef[grepl(main, rownames(summary(pois)$coef)),]
                                           },
                                           AIC=unlist(models)))
   if(names(gomod) %in% "tweedie") return(c(OTU=feature, win.model="tweedie", 
                                         results=if(length(levels(anly_data$all_data[,main]))>2) {
                                           gdata::unmatrix(summary(tweedie)$coef[grepl(main, rownames(summary(tweedie)$coef)),], byrow=TRUE)
                                         } else {
-                                          modl <- summary(tweedie)$coef[grepl(main, rownames(summary(tweedie)$coef)),]
-                                          if(nrow(modl) > 1) {
-                                            obj <- c("Est"=modl[,1],"Pvalue"=modl[,4])
-                                          } else {
-                                            obj <- c("Est"=modl[[1]], "Pvalue"=modl[[4]])
-                                          }
+                                          summary(tweedie)$coef[grepl(main, rownames(summary(tweedie)$coef)),]
                                         },
                                         AIC=unlist(models)))
     if(names(gomod) %in% "lm") return(c(OTU=feature, win.model="lm", 
                                              results=if(length(levels(anly_data$all_data[,main]))>2) {
                                                gdata::unmatrix(summary(lm)$coef[grepl(main, rownames(summary(lm)$coef)),], byrow=TRUE)
                                              } else {
-                                               modl <- summary(lm)$coef$count[grepl(main, rownames(summary(lm)$coef$count)),]
-                                               if(nrow(modl) > 1) {
-                                                 obj <- c("Est"=modl[,1],"Pvalue"=modl[,4])
-                                               } else {
-                                                 obj <- c("Est"=modl[[1]], "Pvalue"=modl[[4]])
-                                               }
+                                               summary(lm)$coef[grepl(main, rownames(summary(lm)$coef)),]
                                              },
                                              AIC=unlist(models)))
-    # if(names(gomod) %in% "cplm") return(c(OTU=feature, win.model="cplm", 
-    #                                          results=if(length(levels(anly_data$all_data[,main]))>2) {
-    #                                            out <- capture.output(cplm <- invisible(summary(cplm)$coef))
-    #                                            gdata::unmatrix(cplm[grepl(main, rownames(cplm)),], byrow=TRUE)
-    #                                          } else {
-    #                                            out <- capture.output(cplm <- invisible(summary(cplm)$coef))
-    #                                            cplm[grepl(main, rownames(cplm)),c(1,4)]
-    #                                          },
-    #                                          AIC=unlist(models)))
+    if(names(gomod) %in% "cplm") return(c(OTU=feature, win.model="cplm", 
+                                             results=if(length(levels(anly_data$all_data[,main]))>2) {
+                                               out <- capture.output(cplm <- invisible(summary(cplm)$coef))
+                                               gdata::unmatrix(cplm[grepl(main, rownames(cplm)),], byrow=TRUE)
+                                             } else {
+                                               out <- capture.output(cplm <- invisible(summary(cplm)$coef))
+                                               cplm[grepl(main, rownames(cplm)),]
+                                             },
+                                             AIC=unlist(models)))
   }
 }
 
@@ -211,55 +180,49 @@ mixed_models <- function(anly_data, model, feature, run_models=run_models, main=
                                            results=if(length(levels(anly_data$all_data[,main]))>2) {
                                              gdata::unmatrix(summary(zinfl)$coef$cond[grepl(main, rownames(summary(zinfl)$coef$cond)),], byrow=TRUE)
                                            } else {
-                                             modl <- summary(zinfl)$coef$cond[grepl(main, rownames(summary(zinfl)$coef$cond)),]
-                                             obj <- c("Est"=modl[[1]],"Pvalue"=modl[[4]])
+                                             summary(zinfl)$coef$cond[grepl(main, rownames(summary(zinfl)$coef$cond)),]
                                            },
                                            AIC=unlist(models)))
     if(names(gomod) %in% "negbin") return(c(OTU=feature, win.model="negbin",
                                             results=if(length(levels(anly_data$all_data[,main]))>2) {
                                               gdata::unmatrix(summary(negbin)$coef$cond[grepl(main, rownames(summary(negbin)$coef$cond)),], byrow=TRUE)
                                             } else {
-                                              modl <- summary(negbin)$coef$cond[grepl(main, rownames(summary(negbin)$coef$cond)),]
-                                              obj <- c("Est"=modl[[1]],"Pvalue"=modl[[4]])
+                                              summary(negbin)$coef$cond[grepl(main, rownames(summary(negbin)$coef$cond)),]
                                             },
                                             AIC=unlist(models)))
     if(names(gomod) %in% "pois") return(c(OTU=feature, win.model="pois", 
                                           results=if(length(levels(anly_data$all_data[,main]))>2) {
                                             gdata::unmatrix(summary(pois)$coef$cond[grepl(main, rownames(summary(pois)$coef$cond)),], byrow=TRUE)
                                           } else {
-                                            modl <- summary(pois)$coef$cond[grepl(main, rownames(summary(pois)$coef$cond)),]
-                                            obj <- c("Est"=modl[[1]],"Pvalue"=modl[[4]])
+                                            summary(pois)$coef$cond[grepl(main, rownames(summary(pois)$coef$cond)),]
                                           },
                                           AIC=unlist(models)))
     if(names(gomod) %in% "tweedie") return(c(OTU=feature, win.model="tweedie", 
                                              results=if(length(levels(anly_data$all_data[,main]))>2) {
                                                gdata::unmatrix(summary(tweedie)$coef$cond[grepl(main, rownames(summary(tweedie)$coef$cond)),], byrow=TRUE)
                                              } else {
-                                               modl <- summary(tweedie)$coef$cond[grepl(main, rownames(summary(tweedie)$coef$cond)),]
-                                               obj <- c("Est"=modl[[1]],"Pvalue"=modl[[4]])
+                                               summary(tweedie)$coef$cond[grepl(main, rownames(summary(tweedie)$coef$cond)),]
                                              },
                                              AIC=unlist(models)))
     if(names(gomod) %in% "lm") return(c(OTU=feature, win.model="lm", 
                                              results=if(length(levels(anly_data$all_data[,main]))>2) {
                                                gdata::unmatrix(summary(lm)$coef$cond[grepl(main, rownames(summary(lm)$coef$cond)),], byrow=TRUE)
                                              } else {
-                                               modl <- summary(lm)$coef$cond[grepl(main, rownames(summary(lm)$coef$cond)),]
-                                               obj <- c("Est"=modl[[1]],"Pvalue"=modl[[4]])
+                                               summary(lm)$coef$cond[grepl(main, rownames(summary(lm)$coef$cond)),]
                                              },
                                              AIC=unlist(models)))
     if(names(gomod) %in% "cplm") return(c(OTU=feature, win.model="cplm", 
                                              results=if(length(levels(anly_data$all_data[,main]))>2) {
                                                gdata::unmatrix(summary(cplm)$coef$cond[grepl(main, rownames(summary(cplm)$coef$cond)),], byrow=TRUE)
                                              } else {
-                                               modl <- summary(cplm)$coef$cond[grepl(main, rownames(summary(cplm)$coef$cond)),]
-                                               obj <- c("Est"=modl[[1]],"Pvalue"=modl[[4]])
+                                               summary(cplm)$coef$cond[grepl(main, rownames(summary(cplm)$coef$cond)),]
                                              },
                                              AIC=unlist(models)))
   }
 }
 
 
-many_model_script <- function(otu=NULL, data=NULL, phy=NULL, sampleid=NULL, subjectid=NULL, pct_pres=NULL, log_reads=NULL, model, main=NULL, cores=1, ref=NA, run_models=c("lm","negbin","zinfl","tweedie")) {
+many_model_script <- function(otu=NULL, data=NULL, phy=NULL, sampleid=NULL, subjectid=NULL, pct_pres=NULL, log_reads=NULL, model, main=NULL, cores=1, ref=NA, run_models=c("lm","pois","negbin","zinfl","tweedie")) {
   if(is.null(main)) main <- stringr::str_split(model, " +")[[1]][2]
   anly_data <- make_data(otu, data, phy, sampleid)
   filt_data <- filter_params(anly_data, pct_pres, log_reads)
@@ -275,7 +238,6 @@ many_model_script <- function(otu=NULL, data=NULL, phy=NULL, sampleid=NULL, subj
     print("Running Mixed-Effects Models")
     stat_anly <- pbmcmapply(mixed_models, feature=filt_data$taxa_list, MoreArgs = list(model=model, anly_data=filt_data, main=main, run_models=run_models, subjid=subjectid), mc.cores=cores)
     stat_anly <- if(any(class(stat_anly) %in% "list")) stat_anly$value else stat_anly
-    print("Models finished calculating...")
   }
   if(is.factor(filt_data$all_data[,main])) {
   differences <- filt_data$all_data %>% 
@@ -287,34 +249,26 @@ many_model_script <- function(otu=NULL, data=NULL, phy=NULL, sampleid=NULL, subj
     mutate_at(vars(-starts_with(c(!!ref, "OTU"))), list(mean_diff = ~ . - .data[[ref]]))
   taxon_results <- data.frame(t(data.frame(stat_anly))) %>%
     rename_at(vars(contains(main)), function(x) sub(main,"", x)) %>%
-    select(!contains(c("Std..Error",".value"))) %>%
-    rename_with(~ gsub("Pr......","Pvalue", .x)) %>% 
-    rename_with(~ gsub("results.","", .x)) %>% 
     mutate_at(vars(contains("results")), list(function(x) as.numeric(as.character(x)))) %>%
-    mutate_at(vars(contains("Pvalue")), list(p.fdr=function(x) p.adjust(x, method="fdr"))) %>%
+    mutate_at(vars(contains("Pr...")), list(p.fdr=function(x) p.adjust(x, method="fdr"))) %>%
     mutate_at("OTU", as.character) %>% 
     mutate_all(unlist) %>% 
     left_join(differences, by="OTU")
   } else {
     taxon_results <- data.frame(t(data.frame(stat_anly))) %>%
       rename_at(vars(contains(main)), function(x) sub(main,"", x)) %>%
-      select(!contains(c("Std..Error",".value"))) %>%
-      rename_with(~ gsub("Pr......","Pvalue", .x)) %>% 
-      rename_with(~ gsub("results.","", .x)) %>% 
       mutate_at(vars(contains("results")), list(function(x) as.numeric(as.character(x)))) %>%
-      mutate_at(vars(contains("Pvalue")), list(p.fdr=function(x) p.adjust(x, method="fdr"))) %>%
+      mutate_at(vars(contains("Pr...")), list(p.fdr=function(x) p.adjust(x, method="fdr"))) %>%
       mutate_all(unlist)
   }
 if(!is.null(phy) & !is.null(tax_table(phy, errorIfNULL=FALSE))) taxon_results <- merge(taxon_results, tax_table(phy)@.Data, by.x="OTU",by.y=0)
-  if(is.null(phy) & is.null(otu$taxonomy)) {
+  if(is.null(phy)) {
     otu.tax <- cbind(otu=rownames(otu), taxonomy=as.character(otu$taxonomy))
     taxon_results <- merge(taxon_results, otu.tax, by.x="OTU", by.y="otu")
   }
 return(taxon_results)
 }
 
-# my_phy_filt <- subset_samples(myphy, !is.na(pheno_y10))
-# my_phy_filt <- filter_taxa(my_phy_filt, function(x) sum(x) > 0, TRUE)
-# my_phy_filt_test <- my_phy_filt
-# tax_table(my_phy_filt_test) <- NULL
-# my_results <- many_model_script(phy=my_phy_filt_test, model="~ pheno_y10", cores=2, subjectid = "studyid", pct_pres=0.2)
+#myphy2 <- subset_samples(myphy, !Case.or.Control.Status.Full.Cohort %in% "" & Analysis.Visit %in% "Visit 1a")
+#myphy3 <- filter_taxa(myphy2, function(x) sum(x) > 0, TRUE)
+#my_results <- many_model_script(phy=myphy3, model="~ Case.or.Control.Status.Full.Cohort + Age.in.years", cores=10, ref="Control", run_models=c("lm","cplm","pois","negbin","zinfl","tweedie"), subjectid = "Subject.Identifier.for.the.Study")
