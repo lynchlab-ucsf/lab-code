@@ -30,6 +30,10 @@ pacman::p_load(gdata, pscl, stringr, MASS, tidyverse, foreach, phyloseq, paralle
 #myphy <- readRDS("/data/Users/kmccauley/MUPPITS/OTUtables/usearch_nonrare_phyloseq_amend.RData")
 #mydata2 <- mydata[!mydata$Case.or.Control.Status.Full.Cohort %in% "", ]
 
+print("UPDATE as of 5/6: The output of this script has been significantly simplified. Your previous plotting script will no longer work. Review the output before plotting.")
+print("UPDATE as of 5/6: Poisson has been removed from the list of models by default (and your results may change). If you would like to force it, specify run_models=run_models=c('lm','pois','negbin','zinfl','tweedie'), but this is not recommended.")
+print("UPDATE as of 5/6: This script should theoretically work for metabolomics data too -- I think I've fixed the 'bug'. If you encounter issues, please submit a bug report.")
+
 make_data <- function(otu=NULL, data=NULL, phy=NULL, sampleid=NULL) {
   ## If a phyloseq object isn't provided, but an OTU table and sample data *is* provided.
   if(is.null(phy) & !is.null(otu) & !is.null(data) & !is.null(sampleid)) {
@@ -222,7 +226,7 @@ mixed_models <- function(anly_data, model, feature, run_models=run_models, main=
 }
 
 
-many_model_script <- function(otu=NULL, data=NULL, phy=NULL, sampleid=NULL, subjectid=NULL, pct_pres=NULL, log_reads=NULL, model, main=NULL, cores=1, ref=NA, run_models=c("lm","pois","negbin","zinfl","tweedie")) {
+many_model_script <- function(otu=NULL, data=NULL, phy=NULL, sampleid=NULL, subjectid=NULL, pct_pres=NULL, log_reads=NULL, model, main=NULL, cores=1, ref=NA, run_models=c("lm","negbin","zinfl","tweedie")) {
   if(is.null(main)) main <- stringr::str_split(model, " +")[[1]][2]
   anly_data <- make_data(otu, data, phy, sampleid)
   filt_data <- filter_params(anly_data, pct_pres, log_reads)
@@ -240,33 +244,39 @@ many_model_script <- function(otu=NULL, data=NULL, phy=NULL, sampleid=NULL, subj
     stat_anly <- if(any(class(stat_anly) %in% "list")) stat_anly$value else stat_anly
   }
   if(is.factor(filt_data$all_data[,main])) {
-  differences <- filt_data$all_data %>% 
-    group_by(.data[[main]]) %>% 
-    summarize_at(vars(starts_with(filt_data$taxa_list)), mean) %>% 
-    column_to_rownames(var=main) %>%
-    t() %>% data.frame(check.names = F) %>% 
-    rownames_to_column("OTU") %>% 
-    mutate_at(vars(-starts_with(c(!!ref, "OTU"))), list(mean_diff = ~ . - .data[[ref]]))
-  taxon_results <- data.frame(t(data.frame(stat_anly))) %>%
-    rename_at(vars(contains(main)), function(x) sub(main,"", x)) %>%
-    mutate_at(vars(contains("results")), list(function(x) as.numeric(as.character(x)))) %>%
-    mutate_at(vars(contains("Pr...")), list(p.fdr=function(x) p.adjust(x, method="fdr"))) %>%
-    mutate_at("OTU", as.character) %>% 
-    mutate_all(unlist) %>% 
-    left_join(differences, by="OTU")
+    differences <- filt_data$all_data %>% 
+      group_by(.data[[main]]) %>% 
+      summarize_at(vars(starts_with(filt_data$taxa_list)), mean) %>% 
+      column_to_rownames(var=main) %>%
+      t() %>% data.frame(check.names = F) %>% 
+      rownames_to_column("OTU") %>% 
+      mutate_at(vars(-starts_with(c(!!ref, "OTU"))), list(mean_diff = ~ . - .data[[ref]]))
+    taxon_results <- data.frame(t(data.frame(stat_anly))) %>%
+      rename_at(vars(contains(main)), function(x) sub(main,"", x)) %>%
+      select(!contains(c("Std..Error",".value"))) %>%
+      rename_with(~ gsub("Pr......","Pvalue", .x)) %>% 
+      rename_with(~ gsub("results.","", .x)) %>% 
+      mutate_at(vars(contains("results")), list(function(x) as.numeric(as.character(x)))) %>%
+      mutate_at(vars(contains("Pvalue")), list(p.fdr=function(x) p.adjust(x, method="fdr"))) %>%
+      mutate_at("OTU", as.character) %>% 
+      mutate_all(unlist) %>% 
+      left_join(differences, by="OTU")
   } else {
     taxon_results <- data.frame(t(data.frame(stat_anly))) %>%
       rename_at(vars(contains(main)), function(x) sub(main,"", x)) %>%
+      select(!contains(c("Std..Error",".value"))) %>%
+      rename_with(~ gsub("Pr......","Pvalue", .x)) %>% 
+      rename_with(~ gsub("results.","", .x)) %>% 
       mutate_at(vars(contains("results")), list(function(x) as.numeric(as.character(x)))) %>%
-      mutate_at(vars(contains("Pr...")), list(p.fdr=function(x) p.adjust(x, method="fdr"))) %>%
+      mutate_at(vars(contains("Pvalue")), list(p.fdr=function(x) p.adjust(x, method="fdr"))) %>%
       mutate_all(unlist)
   }
-if(!is.null(phy) & !is.null(tax_table(phy, errorIfNULL=FALSE))) taxon_results <- merge(taxon_results, tax_table(phy)@.Data, by.x="OTU",by.y=0)
-  if(is.null(phy)) {
+  if(!is.null(phy) & !is.null(tax_table(phy, errorIfNULL=FALSE))) taxon_results <- merge(taxon_results, tax_table(phy)@.Data, by.x="OTU",by.y=0)
+  if(is.null(phy) & is.null(otu$taxonomy)) {
     otu.tax <- cbind(otu=rownames(otu), taxonomy=as.character(otu$taxonomy))
     taxon_results <- merge(taxon_results, otu.tax, by.x="OTU", by.y="otu")
   }
-return(taxon_results)
+  return(taxon_results)
 }
 
 #myphy2 <- subset_samples(myphy, !Case.or.Control.Status.Full.Cohort %in% "" & Analysis.Visit %in% "Visit 1a")
