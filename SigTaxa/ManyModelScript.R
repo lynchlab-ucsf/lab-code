@@ -253,7 +253,7 @@ many_model_script <- function(otu=NULL, data=NULL, phy=NULL, sampleid=NULL, subj
       mutate_at(vars(-starts_with(c(!!ref, "OTU"))), list(mean_diff = ~ . - .data[[ref]]))
     taxon_results <- data.frame(t(data.frame(stat_anly))) %>%
       rename_at(vars(contains(main)), function(x) sub(main,"", x)) %>%
-      select(!contains(c("Std..Error",".value"))) %>%
+      dplyr::select(!contains(c("Std..Error",".value"))) %>%
       rename_with(~ gsub("Pr......","Pvalue", .x)) %>% 
       rename_with(~ gsub("results.","", .x)) %>% 
       mutate_at(vars(contains("results")), list(function(x) as.numeric(as.character(x)))) %>%
@@ -264,7 +264,7 @@ many_model_script <- function(otu=NULL, data=NULL, phy=NULL, sampleid=NULL, subj
   } else {
     taxon_results <- data.frame(t(data.frame(stat_anly))) %>%
       rename_at(vars(contains(main)), function(x) sub(main,"", x)) %>%
-      select(!contains(c("Std..Error",".value"))) %>%
+      dplyr::select(!contains(c("Std..Error",".value"))) %>%
       rename_with(~ gsub("Pr......","Pvalue", .x)) %>% 
       rename_with(~ gsub("results.","", .x)) %>% 
       mutate_at(vars(contains("results")), list(function(x) as.numeric(as.character(x)))) %>%
