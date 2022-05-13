@@ -68,7 +68,7 @@ filter_params <- function(tokeep, pct_pres=NULL, log_reads=NULL) {
     plot(log(reads), pct_pres_init)
     abline(h=median(pct_pres_init), v=median(log(reads)),col="red")
     print(paste0("Red lines indicate median of proportion of samples the taxon/feature is found in (", round(median(pct_pres_init),3), "), and the median log of the total reads (", round(median(log(reads)),3),") of the taxon/feature."))
-    if(median(pct_pres_init) < 0.05) print("THE MEDIAN PREVALENCE OF YOUR TAXA MAY BE TOO LOW FOR DEFAULTS. If you receive an error after models are complete, consider increasing 'pct.pres'.")
+    if(median(pct_pres_init) < 0.05) print("THE MEDIAN PREVALENCE OF YOUR TAXA MAY BE TOO LOW FOR DEFAULTS. If you receive an error after models are complete, consider increasing 'pct_pres'.")
     print("By default, the upper-right quadrant will be kept. Alternative filtering can be used with 'pct_pres' and 'log_reads' options.")
     droplist <- names(pct_pres_init)[!pct_pres_init>median(pct_pres_init) | !log(reads)>median(log(reads))]
     filt_data <- tokeep$all_data[, !names(tokeep$all_data) %in% droplist]
@@ -254,9 +254,9 @@ many_model_script <- function(otu=NULL, data=NULL, phy=NULL, sampleid=NULL, subj
     taxon_results <- data.frame(t(data.frame(stat_anly))) %>%
       rename_at(vars(contains(main)), function(x) sub(main,"", x)) %>%
       dplyr::select(!contains(c("Std..Error",".value"))) %>%
+      mutate_at(vars(contains("results")), list(function(x) as.numeric(as.character(x)))) %>%
       rename_with(~ gsub("Pr......","Pvalue", .x)) %>% 
       rename_with(~ gsub("results.","", .x)) %>% 
-      mutate_at(vars(contains("results")), list(function(x) as.numeric(as.character(x)))) %>%
       mutate_at(vars(contains("Pvalue")), list(p.fdr=function(x) p.adjust(x, method="fdr"))) %>%
       mutate_at("OTU", as.character) %>% 
       mutate_all(unlist) %>% 
@@ -265,9 +265,9 @@ many_model_script <- function(otu=NULL, data=NULL, phy=NULL, sampleid=NULL, subj
     taxon_results <- data.frame(t(data.frame(stat_anly))) %>%
       rename_at(vars(contains(main)), function(x) sub(main,"", x)) %>%
       dplyr::select(!contains(c("Std..Error",".value"))) %>%
+      mutate_at(vars(contains("results")), list(function(x) as.numeric(as.character(x)))) %>%
       rename_with(~ gsub("Pr......","Pvalue", .x)) %>% 
       rename_with(~ gsub("results.","", .x)) %>% 
-      mutate_at(vars(contains("results")), list(function(x) as.numeric(as.character(x)))) %>%
       mutate_at(vars(contains("Pvalue")), list(p.fdr=function(x) p.adjust(x, method="fdr"))) %>%
       mutate_all(unlist)
   }
